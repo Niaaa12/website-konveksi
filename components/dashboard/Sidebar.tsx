@@ -21,40 +21,40 @@ import { cn } from "@/lib/utils";
 const menuItems = [
   {
     label: "Dashboard",
-    href: "",
+    href: "/dashboard",
     icon: LayoutDashboard,
   },
   {
     label: "Produksi",
     icon: Factory,
     children: [
-      { label: "Work Order", href: "", icon: ClipboardList },
-      { label: "Jadwal Produksi", href: "", icon: Factory },
-      { label: "Kontrol Kualitas", href: "", icon: ClipboardList },
+      { label: "Work Order", href: "/produksi/work-order", icon: ClipboardList },
+      { label: "Jadwal Produksi", href: "/", icon: Factory },
+      { label: "Kontrol Kualitas", href: "/", icon: ClipboardList },
     ],
   },
   {
     label: "Persediaan",
     icon: Package,
     children: [
-      { label: "Bahan Baku", href: "", icon: Boxes },
-      { label: "Penerimaan", href: "", icon: Truck },
-      { label: "Pengeluaran", href: "", icon: Package },
+      { label: "Bahan Baku", href: "/", icon: Boxes },
+      { label: "Penerimaan", href: "/", icon: Truck },
+      { label: "Pengeluaran", href: "/", icon: Package },
     ],
   },
   {
     label: "Laporan",
-    href: "",
+    href: "/",
     icon: BarChart3,
   },
   {
     label: "Pengguna",
-    href: "",
+    href: "/",
     icon: Users,
   },
   {
     label: "Pengaturan",
-    href: "",
+    href: "/",
     icon: Settings,
   },
 ];

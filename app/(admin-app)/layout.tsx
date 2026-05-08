@@ -7,6 +7,10 @@ import { useState } from "react";
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": { title: "Dashboard", subtitle: "Ringkasan Produksi Hari Ini" },
+  "/produksi/work-order": {
+    title: "Work Order",
+    subtitle: "Kelola & pantau pesanan produksi",
+  },
 };
 
 export default function Applayout({ children }: { children: React.ReactNode }) {
