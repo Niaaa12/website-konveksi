@@ -11,6 +11,14 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: "Work Order",
     subtitle: "Kelola & pantau pesanan produksi",
   },
+  "/produksi/jadwal": {
+    title: "Jadwal Produksi",
+    subtitle: "Perencanaan & penjadwalan lini produksi",
+  },
+  "/persediaan/bahan-baku": {
+    title: "Bahan Baku",
+    subtitle: "Kelola stok & informasi bahan baku",
+  },
 };
 
 export default function Applayout({ children }: { children: React.ReactNode }) {

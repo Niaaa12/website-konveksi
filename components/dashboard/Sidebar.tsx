@@ -28,16 +28,19 @@ const menuItems = [
     label: "Produksi",
     icon: Factory,
     children: [
-      { label: "Work Order", href: "/produksi/work-order", icon: ClipboardList },
-      { label: "Jadwal Produksi", href: "/", icon: Factory },
-      { label: "Kontrol Kualitas", href: "/", icon: ClipboardList },
+      {
+        label: "Work Order",
+        href: "/produksi/work-order",
+        icon: ClipboardList,
+      },
+      { label: "Jadwal Produksi", href: "/produksi/jadwal", icon: Factory },
     ],
   },
   {
     label: "Persediaan",
     icon: Package,
     children: [
-      { label: "Bahan Baku", href: "/", icon: Boxes },
+      { label: "Bahan Baku", href: "/persediaan/bahan-baku", icon: Boxes },
       { label: "Penerimaan", href: "/", icon: Truck },
       { label: "Pengeluaran", href: "/", icon: Package },
     ],
