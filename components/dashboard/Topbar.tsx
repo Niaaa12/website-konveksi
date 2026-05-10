@@ -1,6 +1,10 @@
 "use client";
 
-import { Bell, ChevronDown, Menu, Moon, Search, Sun } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { logout } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+import { Bell, ChevronDown, LogOut, Menu, Moon, Search, Sun, User } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 interface TopbarProps {
@@ -9,15 +13,40 @@ interface TopbarProps {
     subtitle?: string;
 }
 
+const roleBadge: Record<string, string> = {
+  admin: "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400",
+  manajer:
+    "bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-400",
+  produksi: "bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400",
+  gudang:
+    "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400",
+};
+
 export function TopBar({ onMenuClick, title, subtitle}: TopbarProps){
     const [showNotif, setShowNotif] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
-    
+    const { user } = useAuth();
+    const router = useRouter();
+
+    const initials = user?.nama
+      ? user.nama
+          .split(" ")
+          .map((w: string) => w[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2)
+      : "NC";
 
     const toggleDark = () => {
       setDarkMode(!darkMode);
       document.documentElement.classList.toggle("dark");
     };
+
+    async function handleLogout() {
+      await logout();
+      router.replace("/login");
+    }
 
     return (
       <header className="sticky top-0 z-10 flex h-16 items-center border-b border-border bg-background/95 backdrop-blur px-4 lg:px-6 gap-4">
@@ -82,21 +111,85 @@ export function TopBar({ onMenuClick, title, subtitle}: TopbarProps){
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                   <span className="text-sm font-semibold">Notifikasi</span>
                 </div>
-                <div className="max-h-80 overflow-y-auto">
-                  
-                </div>
+                <div className="max-h-80 overflow-y-auto"></div>
               </div>
             </>
           )}
         </div>
 
         {/* Profile */}
-        <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent transition-colors">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-            AS
-          </div>
-          <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => {
+              setShowProfile(!showProfile);
+              setShowNotif(false);
+            }}
+            className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-muted transition-colors"
+          >
+            <div
+              className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white flex-shrink-0"
+              style={{ background: "#c2476a" }}
+            >
+              {initials}
+            </div>
+            <span className="hidden sm:block text-xs font-medium text-foreground max-w-[90px] truncate">
+              {user?.nama ?? "Pengguna"}
+            </span>
+            <ChevronDown className="h-3 w-3 text-muted-foreground hidden sm:block" />
+          </button>
+
+          {showProfile && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowProfile(false)}
+              />
+              <div className="absolute right-0 top-full mt-2 z-20 w-56 rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
+                <div className="px-4 py-3.5 border-b border-border">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white flex-shrink-0"
+                      style={{ background: "#c2476a" }}
+                    >
+                      {initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {user?.nama ?? "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {user?.email ?? "—"}
+                      </p>
+                    </div>
+                  </div>
+                  {user?.role && (
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                        roleBadge[user.role]
+                      )}
+                    >
+                      {user.jabatan || user.role}
+                    </span>
+                  )}
+                </div>
+                <div className="p-1.5">
+                  <button className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors text-foreground">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    Profil saya
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    Keluar dari sistem
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </header>
     );
 }
