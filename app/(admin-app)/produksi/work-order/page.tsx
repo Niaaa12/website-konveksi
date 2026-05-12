@@ -33,7 +33,7 @@ export default function WorkOrderPage() {
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Export</span>
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-[#093C5D] text-primary-foreground hover:bg-[#093C5D]/90 transition-colors">
             <Plus className="h-4 w-4" />
             <span>Buat WO</span>
           </button>
@@ -49,7 +49,7 @@ export default function WorkOrderPage() {
             className={cn(
               "flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors",
               filterStatus === s
-                ? "bg-primary text-primary-foreground"
+                ? "bg-[#093C5D] text-primary-foreground"
                 : "bg-card border border-border text-muted-foreground hover:bg-accent"
             )}
           >
@@ -98,8 +98,7 @@ export default function WorkOrderPage() {
 
         <div className="flex items-center justify-between px-4 py-3 border-t border-border">
           <p className="text-xs text-muted-foreground">
-            Menampilkan ... dari ... {" "}
-            work order
+            Menampilkan ... dari ... work order
           </p>
           <div className="flex gap-1">
             <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent disabled:opacity-50">

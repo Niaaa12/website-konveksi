@@ -322,7 +322,7 @@ export default function LoginPage() {
               className={cn(
                 "flex items-start gap-2.5 p-3 rounded-xl text-sm mb-4",
                 alert.type === "ok"
-                  ? "bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-900 dark:text-emerald-300"
+                  ? "bg-blue-50 border border-blue-200 text-white-800 dark:bg-blue-950/30 dark:border-blue-900 dark:text-white-300"
                   : "bg-red-100 border border-red-300 text-red-1000 dark:text-red-500"
               )}
             >

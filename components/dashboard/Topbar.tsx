@@ -14,12 +14,10 @@ interface TopbarProps {
 }
 
 const roleBadge: Record<string, string> = {
-  admin: "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400",
-  manajer:
-    "bg-violet-100 text-violet-700 dark:bg-violet-950/60 dark:text-violet-400",
-  produksi: "bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400",
-  gudang:
-    "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400",
+  admin: "bg-[#C0E1D2] text-[#124170]",
+  manajer: "bg-[#C0E1D2] text-[#124170]",
+  produksi: "bg-[#C0E1D2] text-[#124170]",
+  gudang: "bg-[#C0E1D2] text-[#124170]",
 };
 
 export function TopBar({ onMenuClick, title, subtitle}: TopbarProps){
@@ -128,7 +126,7 @@ export function TopBar({ onMenuClick, title, subtitle}: TopbarProps){
           >
             <div
               className="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white flex-shrink-0"
-              style={{ background: "#c2476a" }}
+              style={{ background: "#003247" }}
             >
               {initials}
             </div>
@@ -149,7 +147,7 @@ export function TopBar({ onMenuClick, title, subtitle}: TopbarProps){
                   <div className="flex items-center gap-3 mb-2">
                     <div
                       className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white flex-shrink-0"
-                      style={{ background: "#c2476a" }}
+                      style={{ background: "#003247" }}
                     >
                       {initials}
                     </div>
@@ -168,6 +166,7 @@ export function TopBar({ onMenuClick, title, subtitle}: TopbarProps){
                         "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
                         roleBadge[user.role]
                       )}
+                      
                     >
                       {user.jabatan || user.role}
                     </span>
