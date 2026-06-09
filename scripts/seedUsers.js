@@ -15,7 +15,7 @@ const users = [
     password: "Admin@2025!", // ← Ganti setelah login pertama
     nama: "Ratna Cahyani",
     role: "admin",
-    jabatan: "Manajer Sistem & Admin",
+    jabatan: "Admin",
   },
   {
     email: "manajer@sodaigroup.id",
