@@ -2,9 +2,9 @@
 
 import { cn } from "@/lib/utils";
 import {
-  Plus, Search, Filter, Download, Edit, Trash2,
+  Plus, Search, Filter, Download, Edit, Trash2, Eye,
   X, Loader2, Boxes, AlignLeft, Hash, ChevronDown,
-  AlertTriangle, CheckCircle2,
+  AlertTriangle, AlertCircle,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -51,10 +51,11 @@ function StokBadge({ stok, stokMin }: { stok: number; stokMin: number }) {
 }
 
 // ─── Modal Tambah Bahan Baku ──────────────────────────────────────
-function TambahBahanModal({ open, onClose, onSubmit }: {
+function TambahBahanModal({ open, onClose, onSubmit, initial, mode = "tambah" }: {
   open: boolean; onClose: () => void; onSubmit: (d: BahanForm) => void;
+  initial?: BahanForm; mode?: "tambah" | "edit";
 }) {
-  const [form, setForm] = useState<BahanForm>(defaultForm);
+  const [form, setForm] = useState<BahanForm>(initial ?? defaultForm);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<BahanForm>>({});
 
@@ -120,8 +121,8 @@ function TambahBahanModal({ open, onClose, onSubmit }: {
                 <Boxes className="h-4 w-4 text-white" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-white">Tambah Bahan Baku</h2>
-                <p className="text-[11px] text-white/60">Isi data bahan baku baru</p>
+                <h2 className="text-sm font-semibold text-white">{mode === "edit" ? "Edit Bahan Baku" : "Tambah Bahan Baku"}</h2>
+                <p className="text-[11px] text-white/60">{mode === "edit" ? "Ubah data bahan baku" : "Isi data bahan baku baru"}</p>
               </div>
             </div>
             <button onClick={handleClose} disabled={loading} className="rounded-lg p-1.5 hover:bg-white/10 transition-colors text-white/70 hover:text-white">
@@ -226,10 +227,87 @@ function TambahBahanModal({ open, onClose, onSubmit }: {
                 style={{ background: BRAND }}
                 onMouseEnter={e => !loading && ((e.target as HTMLElement).style.background = BRAND_LIGHT)}
                 onMouseLeave={e => !loading && ((e.target as HTMLElement).style.background = BRAND)}>
-                {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Menyimpan...</> : <><Plus className="h-4 w-4" />Tambah Bahan</>}
+                {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Menyimpan...</> : <>{mode === "edit" ? <Edit className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{mode === "edit" ? "Simpan Perubahan" : "Tambah Bahan"}</>}
               </button>
             </div>
           </form>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Modal Lihat Detail ───────────────────────────────────────────
+function ViewBahanModal({ open, onClose, b }: { open: boolean; onClose: () => void; b: BahanBaku | null }) {
+  if (!open || !b) return null;
+  const rows: [string, React.ReactNode][] = [
+    ["ID", <span key="id" className="font-mono text-xs">{b.id}</span>],
+    ["Nama Bahan", b.nama],
+    ["Kategori", b.kategori],
+    ["Satuan", b.satuan],
+    ["Stok", b.stok.toLocaleString("id-ID")],
+    ["Stok Minimum", b.stokMin.toLocaleString("id-ID")],
+    ["Harga/Satuan", `Rp ${b.hargaSatuan.toLocaleString("id-ID")}`],
+    ["Nilai Stok", `Rp ${(b.stok * b.hargaSatuan).toLocaleString("id-ID")}`],
+    ["Status", <StokBadge key="s" stok={b.stok} stokMin={b.stokMin} />],
+    ["Keterangan", b.keterangan || "—"],
+  ];
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4" style={{ background: "#003247" }}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10"><Eye className="h-4 w-4 text-white" /></div>
+              <div><h2 className="text-sm font-semibold text-white">Detail Bahan Baku</h2><p className="text-[11px] text-white/60">{b.id}</p></div>
+            </div>
+            <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-white/10 transition-colors text-white/70 hover:text-white"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="p-6 space-y-1">
+            {rows.map(([label, val]) => (
+              <div key={label as string} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <span className="text-xs text-muted-foreground w-32">{label}</span>
+                <span className="text-sm font-medium text-foreground text-right">{val}</span>
+              </div>
+            ))}
+          </div>
+          <div className="px-6 pb-6">
+            <button onClick={onClose} className="w-full h-10 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors">Tutup</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Modal Konfirmasi Hapus ────────────────────────────────────────
+function DeleteBahanModal({ open, onClose, onConfirm, nama }: { open: boolean; onClose: () => void; onConfirm: () => void; nama: string }) {
+  const [loading, setLoading] = useState(false);
+  if (!open) return null;
+  async function handle() {
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 400));
+    onConfirm();
+    setLoading(false);
+    onClose();
+  }
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => !loading && onClose()} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-2xl p-6 flex flex-col items-center gap-4 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30"><AlertCircle className="h-6 w-6 text-red-500" /></div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Hapus Bahan Baku?</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Bahan <span className="font-semibold text-foreground">"{nama}"</span> akan dihapus permanen.</p>
+          </div>
+          <div className="flex w-full gap-3">
+            <button onClick={onClose} disabled={loading} className="flex-1 h-10 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60">Batal</button>
+            <button onClick={handle} disabled={loading} className="flex-1 h-10 rounded-lg bg-red-500 hover:bg-red-600 text-sm font-medium text-white flex items-center justify-center gap-2 transition-colors disabled:opacity-70">
+              {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Menghapus...</> : <><Trash2 className="h-4 w-4" />Hapus</>}
+            </button>
+          </div>
         </div>
       </div>
     </>
@@ -241,6 +319,9 @@ export default function BahanBakuPage() {
   const [search, setSearch] = useState("");
   const [filterKategori, setFilterKategori] = useState("Semua");
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalView, setModalView] = useState<BahanBaku | null>(null);
+  const [modalEdit, setModalEdit] = useState<BahanBaku | null>(null);
+  const [modalDelete, setModalDelete] = useState<BahanBaku | null>(null);
   const [data, setData] = useState<BahanBaku[]>([]);
 
   const kategoriFilter = ["Semua", ...kategoriOptions];
@@ -256,11 +337,18 @@ export default function BahanBakuPage() {
 
   function handleAdd(form: BahanForm) {
     const id = `BB-${String(data.length + 1).padStart(3, "0")}`;
-    setData(prev => [...prev, {
-      id, nama: form.nama, kategori: form.kategori, satuan: form.satuan,
-      stok: +form.stok, stokMin: +form.stokMin,
-      hargaSatuan: +form.hargaSatuan, keterangan: form.keterangan,
-    }]);
+    setData(prev => [...prev, { id, nama: form.nama, kategori: form.kategori, satuan: form.satuan, stok: +form.stok, stokMin: +form.stokMin, hargaSatuan: +form.hargaSatuan, keterangan: form.keterangan }]);
+  }
+
+  function handleEdit(form: BahanForm) {
+    if (!modalEdit) return;
+    setData(prev => prev.map(b => b.id === modalEdit.id ? { ...b, nama: form.nama, kategori: form.kategori, satuan: form.satuan, stok: +form.stok, stokMin: +form.stokMin, hargaSatuan: +form.hargaSatuan, keterangan: form.keterangan } : b));
+  }
+
+  function handleDelete() {
+    if (!modalDelete) return;
+    setData(prev => prev.filter(b => b.id !== modalDelete.id));
+    setModalDelete(null);
   }
 
   return (
@@ -376,8 +464,9 @@ export default function BahanBakuPage() {
                     <td className="px-4 py-3"><StokBadge stok={b.stok} stokMin={b.stokMin} /></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button className="rounded-lg p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"><Edit className="h-3.5 w-3.5" /></button>
-                        <button className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setModalView(b)} title="Lihat" className="rounded-lg p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-muted-foreground hover:text-blue-500 transition-colors"><Eye className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setModalEdit(b)} title="Edit" className="rounded-lg p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"><Edit className="h-3.5 w-3.5" /></button>
+                        <button onClick={() => setModalDelete(b)} title="Hapus" className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -397,7 +486,13 @@ export default function BahanBakuPage() {
         </div>
       </div>
 
-      <TambahBahanModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleAdd} />
+      <TambahBahanModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleAdd} mode="tambah" />
+      <TambahBahanModal open={!!modalEdit} onClose={() => setModalEdit(null)} onSubmit={handleEdit}
+        initial={modalEdit ? { nama: modalEdit.nama, kategori: modalEdit.kategori, satuan: modalEdit.satuan, stok: String(modalEdit.stok), stokMin: String(modalEdit.stokMin), hargaSatuan: String(modalEdit.hargaSatuan), keterangan: modalEdit.keterangan } : undefined}
+        mode="edit" key={modalEdit?.id ?? "edit"} />
+      <ViewBahanModal open={!!modalView} onClose={() => setModalView(null)} b={modalView} />
+      <DeleteBahanModal open={!!modalDelete} onClose={() => setModalDelete(null)}
+        onConfirm={handleDelete} nama={modalDelete?.nama ?? ""} />
     </div>
   );
 }

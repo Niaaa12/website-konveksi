@@ -3,6 +3,7 @@
 import {
   BarChart3,
   Bell,
+  BookOpen,
   Boxes,
   ChevronRight,
   ClipboardList,
@@ -46,18 +47,23 @@ const menuItems = [
     ],
   },
   {
+    label: "Katalog Produk",
+    href: "/katalogproduk",
+    icon: BookOpen,
+  },
+  {
     label: "Laporan",
-    href: "/",
+    href: "/laporan",
     icon: BarChart3,
   },
   {
     label: "Pengguna",
-    href: "/",
+    href: "/pengguna",
     icon: Users,
   },
   {
     label: "Pengaturan",
-    href: "/",
+    href: "/pengaturan",
     icon: Settings,
   },
 ];
@@ -121,8 +127,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   icon={item.icon}
                   label={item.label}
                   active={
-                    pathname === item.href ||
-                    pathname.startsWith(item.href + "/")
+                    item.href !== "/" &&
+                    (pathname === item.href ||
+                    pathname.startsWith(item.href + "/"))
                   }
                   onClick={onClose}
                 />

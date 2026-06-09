@@ -27,6 +27,14 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: "Laporan",
     subtitle: "Laporan Produksi & Stok"
   },
+  "/katalogproduk": {
+    title: "Katalog Produk",
+    subtitle: "Daftar produk & desain yang tersedia"
+  },
+  "/pengaturan": {
+    title: "Pengaturan",
+    subtitle: "Konfigurasi sistem"
+  },
 };
 
 export default function Applayout({ children }: { children: React.ReactNode }) {
