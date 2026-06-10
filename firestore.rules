@@ -1,90 +1,252 @@
 // firestore.rules
-// Deploy dengan: firebase deploy --only firestore:rules
+// ─────────────────────────────────────────────────────────────────────────────
+// SIM Konveksi Hijab "Nur Cahaya Collection"
+// Security Rules Firestore — berbasis role pengguna
+//
+// CARA DEPLOY:
+//   firebase deploy --only firestore:rules
+//
+// ROLE YANG ADA:
+//   admin    — akses penuh ke semua koleksi
+//   manajer  — baca semua, buat & edit WO, tidak bisa hapus
+//   produksi — baca semua, update progress WO sendiri, catat pemakaian bahan
+//   gudang   — baca semua, kelola penerimaan & transaksi persediaan
 // ─────────────────────────────────────────────────────────────────────────────
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper functions ────────────────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────────────────
+    // HELPER FUNCTIONS
+    // ────────────────────────────────────────────────────────────────────────
 
+    // Apakah user sudah login?
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function getUserRole() {
+    // Ambil role dari Firestore (cached per request oleh Firebase)
+    function getRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
+    // Apakah akun masih aktif?
+    function isAktif() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.aktif == true;
+    }
+
+    // Pengecekan role (semua juga membutuhkan akun aktif)
     function isAdmin() {
-      return isSignedIn() && getUserRole() == 'admin';
+      return isSignedIn() && isAktif() && getRole() == 'admin';
     }
 
     function isManajer() {
-      return isSignedIn() && getUserRole() in ['admin', 'manajer'];
+      return isSignedIn() && isAktif() && getRole() in ['admin', 'manajer'];
     }
 
     function isProduksi() {
-      return isSignedIn() && getUserRole() in ['admin', 'manajer', 'produksi'];
+      return isSignedIn() && isAktif() && getRole() in ['admin', 'manajer', 'produksi'];
     }
 
     function isGudang() {
-      return isSignedIn() && getUserRole() in ['admin', 'manajer', 'gudang'];
+      return isSignedIn() && isAktif() && getRole() in ['admin', 'manajer', 'gudang'];
     }
 
+    function isAnyStaff() {
+      return isSignedIn() && isAktif();
+    }
+
+    // Apakah user adalah pemilik dokumen (untuk profil sendiri)?
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // ── Collection: users ───────────────────────────────────────────────────
+    // Apakah operator WO adalah user yang sedang login?
+    function isWoOperator(woData) {
+      return isSignedIn() && woData.operatorId == request.auth.uid;
+    }
+
+    // Validasi field yang TIDAK boleh diubah oleh staf produksi saat update WO
+    // Mereka hanya boleh update: jumlahSelesai, jumlahCacat, status, updatedAt
+    function isProgressUpdateOnly() {
+      let allowed = ['jumlahSelesai', 'jumlahCacat', 'status', 'updatedAt'];
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+
+    // Validasi: jumlah tidak boleh melebihi target
+    function isValidProgress() {
+      return request.resource.data.jumlahSelesai <= request.resource.data.jumlahTarget
+          && request.resource.data.jumlahCacat   <= request.resource.data.jumlahTarget
+          && request.resource.data.jumlahSelesai >= 0
+          && request.resource.data.jumlahCacat   >= 0;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // USERS
+    // Setiap user hanya bisa baca & edit profilnya sendiri.
+    // Hanya admin yang bisa buat, hapus, dan baca semua user.
+    // ────────────────────────────────────────────────────────────────────────
     match /users/{uid} {
-      // User hanya bisa baca profilnya sendiri; admin bisa baca semua
       allow read:   if isOwner(uid) || isAdmin();
-      // Hanya admin yang bisa buat/hapus user
-      allow create, delete: if isAdmin();
-      // User bisa update profilnya sendiri (terbatas); admin bisa update semua
+      allow create: if isAdmin();
       allow update: if isOwner(uid) || isAdmin();
-    }
-
-    // ── Collection: workOrders ──────────────────────────────────────────────
-    match /workOrders/{docId} {
-      allow read:   if isSignedIn();
-      allow create: if isProduksi();
-      allow update: if isProduksi();
       allow delete: if isAdmin();
     }
 
-    // ── Collection: bahanBaku ───────────────────────────────────────────────
-    match /bahanBaku/{docId} {
-      allow read:   if isSignedIn();
-      allow create: if isGudang();
-      allow update: if isGudang();
-      allow delete: if isAdmin();
+    // ────────────────────────────────────────────────────────────────────────
+    // DATA REFERENSI (read-only untuk staf, admin yang mengelola)
+    // Koleksi: materialCategories, productCategories, suppliers, productionUnits
+    // ────────────────────────────────────────────────────────────────────────
+    match /materialCategories/{docId} {
+      allow read:             if isAnyStaff();
+      allow create, update:   if isManajer();
+      allow delete:           if isAdmin();
     }
 
-    // ── Collection: transaksiPersediaan ─────────────────────────────────────
-    match /transaksiPersediaan/{docId} {
-      allow read:   if isSignedIn();
-      allow create: if isGudang() || isProduksi();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+    match /productCategories/{docId} {
+      allow read:             if isAnyStaff();
+      allow create, update:   if isManajer();
+      allow delete:           if isAdmin();
     }
 
-    // ── Collection: pesanan ─────────────────────────────────────────────────
-    match /pesanan/{docId} {
-      allow read:   if isSignedIn();
+    match /suppliers/{docId} {
+      allow read:             if isAnyStaff();
+      allow create, update:   if isGudang();
+      allow delete:           if isAdmin();
+    }
+
+    match /productionUnits/{docId} {
+      allow read:             if isAnyStaff();
+      allow create, update:   if isManajer();
+      allow delete:           if isAdmin();
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // PRODUCTS (+ subcollection variants dan bom)
+    // Semua staf bisa baca. Manajer/admin yang bisa edit.
+    // ────────────────────────────────────────────────────────────────────────
+    match /products/{productId} {
+      allow read:             if isAnyStaff();
+      allow create, update:   if isManajer();
+      allow delete:           if isAdmin();
+
+      // Varian warna produk
+      match /variants/{variantId} {
+        allow read:           if isAnyStaff();
+        allow create, update: if isManajer();
+        allow delete:         if isAdmin();
+      }
+
+      // Bill of Materials — resep produksi
+      match /bom/{bomId} {
+        allow read:           if isAnyStaff();
+        allow create, update: if isManajer();
+        allow delete:         if isAdmin();
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // MATERIALS (bahan baku)
+    // Semua staf baca. Gudang & admin yang bisa tambah/edit.
+    // ────────────────────────────────────────────────────────────────────────
+    match /materials/{materialId} {
+      allow read:             if isAnyStaff();
+      allow create, update:   if isGudang();
+      allow delete:           if isAdmin();
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // WORK ORDERS (inti produksi)
+    //
+    // - Admin & manajer: akses penuh
+    // - Staf produksi: baca semua WO, update HANYA jika dia operatornya
+    //   dan hanya boleh mengubah field progress (jumlahSelesai, jumlahCacat, status)
+    // - Gudang: baca saja (perlu tahu WO untuk catat pemakaian bahan)
+    // ────────────────────────────────────────────────────────────────────────
+    match /workOrders/{woId} {
+      allow read:   if isAnyStaff();
       allow create: if isManajer();
-      allow update: if isManajer() || isProduksi();
+      allow delete: if isAdmin();
+
+      // Update: manajer/admin bebas update semua field
+      // Staf produksi: hanya bisa update jika dia operatornya DAN hanya field progress
+      allow update: if isManajer()
+                    || (isProduksi()
+                        && isWoOperator(resource.data)
+                        && isProgressUpdateOnly()
+                        && isValidProgress());
+
+      // Progress logs — staf produksi HANYA bisa tambah (create), tidak bisa edit/hapus
+      // Ini menjaga integritas audit trail
+      match /progressLogs/{logId} {
+        allow read:   if isAnyStaff();
+        allow create: if isProduksi()
+                      && request.resource.data.dicatatOleh == request.auth.uid;
+        allow update: if isAdmin();  // hanya admin bisa koreksi log
+        allow delete: if isAdmin();
+      }
+
+      // Pemakaian bahan dalam WO — staf produksi bisa catat, tidak bisa hapus
+      match /materialUsage/{usageId} {
+        allow read:   if isAnyStaff();
+        allow create: if isProduksi()
+                      && request.resource.data.dicatatOleh == request.auth.uid;
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+
+      // Hasil inspeksi QC — staf produksi & gudang bisa baca, hanya QC/manajer yang isi
+      match /qcInspections/{qcId} {
+        allow read:   if isAnyStaff();
+        allow create: if isManajer()
+                      && request.resource.data.inspektorId == request.auth.uid;
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // STOCK TRANSACTIONS (log perubahan stok — append only)
+    // Dokumen yang sudah dibuat TIDAK BISA diubah atau dihapus
+    // kecuali oleh admin (untuk koreksi darurat).
+    // ────────────────────────────────────────────────────────────────────────
+    match /stockTransactions/{txId} {
+      allow read:   if isAnyStaff();
+
+      // Siapapun yang berhak (gudang atau produksi) bisa buat transaksi baru,
+      // asal mencantumkan uid sendiri sebagai pelaku
+      allow create: if isGudang() || isProduksi()
+                    && request.resource.data.dilakukanOleh == request.auth.uid;
+
+      // Tidak ada yang boleh edit transaksi yang sudah ada (immutable log)
+      allow update: if false;
+
+      // Hanya admin yang bisa hapus (kasus koreksi ekstrem)
       allow delete: if isAdmin();
     }
 
-    // ── Collection: katalogProduk ───────────────────────────────────────────
-    match /katalogProduk/{docId} {
-      allow read:   if isSignedIn();
-      allow write:  if isAdmin() || isManajer();
+    // ────────────────────────────────────────────────────────────────────────
+    // GOODS RECEIPTS (penerimaan bahan dari supplier)
+    // ────────────────────────────────────────────────────────────────────────
+    match /goodsReceipts/{receiptId} {
+      allow read:   if isAnyStaff();
+      allow create: if isGudang()
+                    && request.resource.data.diterimaOleh == request.auth.uid;
+      allow update: if isGudang() || isManajer();
+      allow delete: if isAdmin();
+
+      // Detail item dalam penerimaan
+      match /items/{itemId} {
+        allow read:           if isAnyStaff();
+        allow create, update: if isGudang();
+        allow delete:         if isAdmin();
+      }
     }
 
-    // ── Tolak semua akses lain secara default ───────────────────────────────
+    // ────────────────────────────────────────────────────────────────────────
+    // TOLAK SEMUA AKSES LAIN (default deny)
+    // ────────────────────────────────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

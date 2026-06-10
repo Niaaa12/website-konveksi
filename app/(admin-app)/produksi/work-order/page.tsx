@@ -6,7 +6,9 @@ import {
   ClipboardList, Calendar, Package, Hash, AlignLeft, ChevronDown,
   AlertCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getWorkOrders, createWorkOrder, updateWorkOrder, deleteWorkOrder, getProducts, getProductionUnits, ProductionUnit } from "@/lib/firestore";
+
 
 const BRAND = "#003247";
 const BRAND_LIGHT = "#004766";
@@ -23,14 +25,16 @@ interface WorkOrderForm {
 interface WorkOrder extends WorkOrderForm {
   id: string;
   progress: number;
+  productId?: string;
+  unitId?: string;
 }
 
 const defaultForm: WorkOrderForm = {
   produk: "", lini: "", target: "", targetSelesai: "", keterangan: "", status: "Dijadwalkan",
 };
 
-const liniOptions = ["Lini A", "Lini B", "Lini C", "Lini D"];
 const statusOptions = ["Dijadwalkan", "Berjalan", "Tertunda", "Selesai"];
+
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -47,10 +51,12 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // ─── Modal Form (Tambah & Edit) ──────────────────────────────────
-function WOFormModal({ open, onClose, onSubmit, initial, mode }: {
+function WOFormModal({ open, onClose, onSubmit, initial, mode, products, productionUnits }: {
   open: boolean; onClose: () => void;
   onSubmit: (data: WorkOrderForm) => void;
   initial?: WorkOrderForm; mode: "tambah" | "edit";
+  products: { id: string; nama: string }[];
+  productionUnits: ProductionUnit[];
 }) {
   const [form, setForm] = useState<WorkOrderForm>(initial ?? defaultForm);
   const [loading, setLoading] = useState(false);
@@ -124,8 +130,14 @@ function WOFormModal({ open, onClose, onSubmit, initial, mode }: {
               <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
                 <Package className="h-3.5 w-3.5" /> Nama Produk <span className="text-red-500">*</span>
               </label>
-              <input type="text" value={form.produk} onChange={e => handleChange("produk", e.target.value)}
-                placeholder="cth. Hijab Segi Empat Polos" disabled={loading} className={inputCls("produk")} />
+              <div className="relative">
+                <select value={form.produk} onChange={e => handleChange("produk", e.target.value)} disabled={loading}
+                  className={cn(inputCls("produk"), "pr-8 appearance-none")}>
+                  <option value="">Pilih produk...</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              </div>
               {errors.produk && <p className="mt-1 text-[11px] text-red-500">{errors.produk}</p>}
             </div>
 
@@ -138,7 +150,7 @@ function WOFormModal({ open, onClose, onSubmit, initial, mode }: {
                   <select value={form.lini} onChange={e => handleChange("lini", e.target.value)} disabled={loading}
                     className={cn(inputCls("lini"), "pr-8 appearance-none")}>
                     <option value="">Pilih lini...</option>
-                    {liniOptions.map(l => <option key={l} value={l}>{l}</option>)}
+                    {productionUnits.map(u => <option key={u.id} value={u.id}>{u.nama}</option>)}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 </div>
@@ -316,6 +328,72 @@ export default function WorkOrderPage() {
   const [modalView, setModalView] = useState<WorkOrder | null>(null);
   const [modalDelete, setModalDelete] = useState<WorkOrder | null>(null);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [productsList, setProductsList] = useState<{ id: string; nama: string }[]>([]);
+  const [unitsList, setUnitsList] = useState<ProductionUnit[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      setIsLoading(true);
+      try {
+        const [wos, prods, units] = await Promise.all([
+          getWorkOrders(),
+          getProducts(),
+          getProductionUnits()
+        ]);
+        setProductsList(prods.map(p => ({ id: p.id || "", nama: p.nama })));
+        setUnitsList(units);
+
+        const mapped = wos.map(wo => {
+          const prod = prods.find(p => p.id === wo.productId);
+          const unit = units.find(u => u.id === wo.unitId);
+          return {
+            id: wo.id || "",
+            produk: prod ? prod.nama : "Produk Tidak Dikenal",
+            lini: unit ? unit.nama : "Lini Tidak Dikenal",
+            productId: wo.productId,
+            unitId: wo.unitId,
+            target: String(wo.jumlahTarget),
+            targetSelesai: wo.tanggalTarget,
+            keterangan: wo.catatan,
+            status: wo.status.charAt(0).toUpperCase() + wo.status.slice(1),
+            progress: wo.jumlahTarget > 0 ? Math.round((wo.jumlahSelesai / wo.jumlahTarget) * 100) : 0
+          };
+        });
+        setWorkOrders(mapped);
+      } catch (e) {
+        console.error("Failed to load work orders", e);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  async function refreshData() {
+    try {
+      const wos = await getWorkOrders();
+      const mapped = wos.map(wo => {
+        const prod = productsList.find(p => p.id === wo.productId);
+        const unit = unitsList.find(u => u.id === wo.unitId);
+        return {
+          id: wo.id || "",
+          produk: prod ? prod.nama : "Produk Tidak Dikenal",
+          lini: unit ? unit.nama : "Lini Tidak Dikenal",
+          productId: wo.productId,
+          unitId: wo.unitId,
+          target: String(wo.jumlahTarget),
+          targetSelesai: wo.tanggalTarget,
+          keterangan: wo.catatan,
+          status: wo.status.charAt(0).toUpperCase() + wo.status.slice(1),
+          progress: wo.jumlahTarget > 0 ? Math.round((wo.jumlahSelesai / wo.jumlahTarget) * 100) : 0
+        };
+      });
+      setWorkOrders(mapped);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   const statuses = ["Semua", "Berjalan", "Selesai", "Tertunda", "Dijadwalkan"];
 
@@ -325,20 +403,57 @@ export default function WorkOrderPage() {
     return matchSearch && matchStatus;
   });
 
-  function handleAdd(data: WorkOrderForm) {
-    const id = `WO-${String(workOrders.length + 1).padStart(3, "0")}`;
-    setWorkOrders(prev => [...prev, { ...data, id, progress: 0 }]);
+  async function handleAdd(data: WorkOrderForm) {
+    try {
+      await createWorkOrder({
+        nomor: `WO-${Date.now().toString().slice(-6)}`,
+        productId: data.produk,
+        variantId: null,
+        jumlahTarget: Number(data.target),
+        jumlahSelesai: 0,
+        jumlahCacat: 0,
+        status: data.status.toLowerCase() as any,
+        prioritas: "normal",
+        unitId: data.lini,
+        operatorId: "staff-001",
+        tanggalMulai: new Date().toISOString().slice(0, 10),
+        tanggalTarget: data.targetSelesai,
+        tanggalSelesai: null,
+        dibuatOleh: "Ratna Cahyani",
+        catatan: data.keterangan
+      });
+      await refreshData();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  function handleEdit(data: WorkOrderForm) {
+  async function handleEdit(data: WorkOrderForm) {
     if (!modalEdit) return;
-    setWorkOrders(prev => prev.map(wo => wo.id === modalEdit.id ? { ...wo, ...data } : wo));
+    try {
+      await updateWorkOrder(modalEdit.id, {
+        productId: data.produk,
+        unitId: data.lini,
+        jumlahTarget: Number(data.target),
+        tanggalTarget: data.targetSelesai,
+        catatan: data.keterangan,
+        status: data.status.toLowerCase() as any
+      });
+      await refreshData();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!modalDelete) return;
-    setWorkOrders(prev => prev.filter(wo => wo.id !== modalDelete.id));
-    setModalDelete(null);
+    try {
+      await deleteWorkOrder(modalDelete.id);
+      await refreshData();
+      setModalDelete(null);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   return (
@@ -402,7 +517,16 @@ export default function WorkOrderPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin opacity-50" />
+                      <p className="text-sm">Memuat data work order...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-12 text-muted-foreground">
                     <div className="flex flex-col items-center gap-3">
@@ -469,9 +593,16 @@ export default function WorkOrderPage() {
       </div>
 
       {/* Modals */}
-      <WOFormModal open={modalAdd} onClose={() => setModalAdd(false)} onSubmit={handleAdd} mode="tambah" />
+      <WOFormModal open={modalAdd} onClose={() => setModalAdd(false)} onSubmit={handleAdd} mode="tambah" products={productsList} productionUnits={unitsList} />
       <WOFormModal open={!!modalEdit} onClose={() => setModalEdit(null)} onSubmit={handleEdit}
-        initial={modalEdit ?? undefined} mode="edit" key={modalEdit?.id ?? "edit"} />
+        initial={modalEdit ? {
+          produk: modalEdit.productId || "",
+          lini: modalEdit.unitId || "",
+          target: modalEdit.target,
+          targetSelesai: modalEdit.targetSelesai,
+          keterangan: modalEdit.keterangan,
+          status: modalEdit.status
+        } : undefined} mode="edit" key={modalEdit?.id ?? "edit"} products={productsList} productionUnits={unitsList} />
       <ViewWOModal open={!!modalView} onClose={() => setModalView(null)} wo={modalView} />
       <DeleteModal open={!!modalDelete} onClose={() => setModalDelete(null)}
         onConfirm={handleDelete} label={modalDelete?.produk ?? ""} />

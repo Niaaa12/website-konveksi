@@ -6,7 +6,9 @@ import {
   X, Loader2, Boxes, AlignLeft, Hash, ChevronDown,
   AlertTriangle, AlertCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getMaterials, createMaterial, updateMaterial, deleteMaterial, Material } from "@/lib/firestore";
+
 
 const BRAND = "#003247";
 const BRAND_LIGHT = "#004766";
@@ -323,32 +325,91 @@ export default function BahanBakuPage() {
   const [modalEdit, setModalEdit] = useState<BahanBaku | null>(null);
   const [modalDelete, setModalDelete] = useState<BahanBaku | null>(null);
   const [data, setData] = useState<BahanBaku[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setIsLoading(true);
+      try {
+        const mats = await getMaterials();
+        const mapped = mats.map(m => ({
+          id: m.id || "",
+          nama: m.nama,
+          kategori: m.kategoriId.startsWith("cat-") ? m.kategoriId.replace("cat-", "") : m.kategoriId,
+          satuan: m.satuan,
+          stok: m.stokAktual,
+          stokMin: m.stokMin,
+          hargaSatuan: m.harga,
+          keterangan: m.lokasiGudang || "",
+        }));
+        setData(mapped);
+      } catch (err) {
+        console.error("Failed to load materials", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   const kategoriFilter = ["Semua", ...kategoriOptions];
 
   const filtered = data.filter(b => {
     const matchSearch = search === "" || b.nama.toLowerCase().includes(search.toLowerCase()) || b.kategori.toLowerCase().includes(search.toLowerCase());
-    const matchKategori = filterKategori === "Semua" || b.kategori === filterKategori;
+    const matchKategori = filterKategori === "Semua" || b.kategori.toLowerCase() === filterKategori.toLowerCase();
     return matchSearch && matchKategori;
   });
 
   const stokKritis = data.filter(b => b.stok <= b.stokMin && b.stok > 0).length;
   const stokHabis = data.filter(b => b.stok <= 0).length;
 
-  function handleAdd(form: BahanForm) {
-    const id = `BB-${String(data.length + 1).padStart(3, "0")}`;
-    setData(prev => [...prev, { id, nama: form.nama, kategori: form.kategori, satuan: form.satuan, stok: +form.stok, stokMin: +form.stokMin, hargaSatuan: +form.hargaSatuan, keterangan: form.keterangan }]);
+  async function handleAdd(form: BahanForm) {
+    try {
+      const newId = await createMaterial({
+        kode: `BB-${Math.floor(Math.random() * 10000)}`,
+        nama: form.nama,
+        kategoriId: form.kategori,
+        supplierId: "sup-001",
+        satuan: form.satuan,
+        stokAktual: +form.stok,
+        stokMin: +form.stokMin,
+        stokMaks: +form.stokMin * 3,
+        harga: +form.hargaSatuan,
+        lokasiGudang: form.keterangan,
+      });
+      setData(prev => [...prev, { id: newId, nama: form.nama, kategori: form.kategori, satuan: form.satuan, stok: +form.stok, stokMin: +form.stokMin, hargaSatuan: +form.hargaSatuan, keterangan: form.keterangan }]);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  function handleEdit(form: BahanForm) {
+  async function handleEdit(form: BahanForm) {
     if (!modalEdit) return;
-    setData(prev => prev.map(b => b.id === modalEdit.id ? { ...b, nama: form.nama, kategori: form.kategori, satuan: form.satuan, stok: +form.stok, stokMin: +form.stokMin, hargaSatuan: +form.hargaSatuan, keterangan: form.keterangan } : b));
+    try {
+      await updateMaterial(modalEdit.id, {
+        nama: form.nama,
+        kategoriId: form.kategori,
+        satuan: form.satuan,
+        stokAktual: +form.stok,
+        stokMin: +form.stokMin,
+        harga: +form.hargaSatuan,
+        lokasiGudang: form.keterangan,
+      });
+      setData(prev => prev.map(b => b.id === modalEdit.id ? { ...b, nama: form.nama, kategori: form.kategori, satuan: form.satuan, stok: +form.stok, stokMin: +form.stokMin, hargaSatuan: +form.hargaSatuan, keterangan: form.keterangan } : b));
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!modalDelete) return;
-    setData(prev => prev.filter(b => b.id !== modalDelete.id));
-    setModalDelete(null);
+    try {
+      await deleteMaterial(modalDelete.id);
+      setData(prev => prev.filter(b => b.id !== modalDelete.id));
+      setModalDelete(null);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   return (
@@ -426,7 +487,16 @@ export default function BahanBakuPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={10} className="text-center py-12 text-muted-foreground">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="h-8 w-8 animate-spin opacity-50" />
+                      <p className="text-sm">Memuat data bahan baku...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="text-center py-12 text-muted-foreground">
                     <div className="flex flex-col items-center gap-3">
