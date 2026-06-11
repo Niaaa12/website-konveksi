@@ -62,11 +62,33 @@ export default function DashboardPage() {
       setLoading(true);
       try {
         const [dashStats, materials, units, wos, prods] = await Promise.all([
-          getDashboardStats(),
-          getMaterials(),
-          getProductionUnits(),
-          getWorkOrders(),
-          getProducts(),
+          getDashboardStats().catch((e) => {
+            console.error("❌ getDashboardStats error:", e);
+            return {
+              woAktif: 0,
+              woTertunda: 0,
+              woDijadwalkan: 0,
+              stokKritis: 0,
+              totalProgress: 0,
+              totalTarget: 0,
+            };
+          }),
+          getMaterials().catch((e) => {
+            console.error("❌ getMaterials error:", e);
+            return [];
+          }),
+          getProductionUnits().catch((e) => {
+            console.error("❌ getProductionUnits error:", e);
+            return [];
+          }),
+          getWorkOrders().catch((e) => {
+            console.error("❌ getWorkOrders error:", e);
+            return [];
+          }),
+          getProducts().catch((e) => {
+            console.error("❌ getProducts error:", e);
+            return [];
+          }),
         ]);
 
         setStats(dashStats);

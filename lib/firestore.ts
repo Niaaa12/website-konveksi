@@ -1,8 +1,23 @@
 import {
-  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
-  query, where, orderBy, limit, onSnapshot, serverTimestamp,
-  increment, runTransaction, writeBatch,
-  type DocumentData, type QueryConstraint, type Unsubscribe,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  serverTimestamp,
+  increment,
+  runTransaction,
+  writeBatch,
+  type DocumentData,
+  type QueryConstraint,
+  type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -10,69 +25,74 @@ import { db } from "./firebase";
 // TIPE DATA
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type WoStatus    = "dijadwalkan" | "berjalan" | "selesai" | "tertunda" | "batal";
+export type WoStatus =
+  | "dijadwalkan"
+  | "berjalan"
+  | "selesai"
+  | "tertunda"
+  | "batal";
 export type WoPrioritas = "rendah" | "normal" | "tinggi";
-export type StokStatus  = "aman" | "rendah" | "kritis";
-export type TxJenis     = "masuk" | "keluar" | "koreksi";
+export type StokStatus = "aman" | "rendah" | "kritis";
+export type TxJenis = "masuk" | "keluar" | "koreksi";
 
 export interface WorkOrder {
-  id?:            string;
-  nomor:          string;
-  productId:      string;
-  variantId:      string | null;
-  jumlahTarget:   number;
-  jumlahSelesai:  number;
-  jumlahCacat:    number;
-  status:         WoStatus;
-  prioritas:      WoPrioritas;
-  unitId:         string;
-  operatorId:     string;
-  tanggalMulai:   string;
-  tanggalTarget:  string;
+  id?: string;
+  nomor: string;
+  productId: string;
+  variantId: string | null;
+  jumlahTarget: number;
+  jumlahSelesai: number;
+  jumlahCacat: number;
+  status: WoStatus;
+  prioritas: WoPrioritas;
+  unitId: string;
+  operatorId: string;
+  tanggalMulai: string;
+  tanggalTarget: string;
   tanggalSelesai: string | null;
-  dibuatOleh:     string;
-  catatan:        string;
-  createdAt?:     Date;
-  updatedAt?:     Date;
+  dibuatOleh: string;
+  catatan: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface ProgressLog {
-  id?:                  string;
-  jumlahSelesaiTambah:  number;
-  jumlahCacatTambah:    number;
-  dicatatOleh:          string;
-  catatan:              string;
-  createdAt?:           Date;
+  id?: string;
+  jumlahSelesaiTambah: number;
+  jumlahCacatTambah: number;
+  dicatatOleh: string;
+  catatan: string;
+  createdAt?: Date;
 }
 
 export interface Material {
-  id?:           string;
-  kode:          string;
-  nama:          string;
-  kategoriId:    string;
-  supplierId:    string;
-  satuan:        string;
-  stokAktual:    number;
-  stokMin:       number;
-  stokMaks:      number;
-  harga:         number;
-  statusStok?:   StokStatus;
-  lokasiGudang:  string;
-  updatedAt?:    Date;
+  id?: string;
+  kode: string;
+  nama: string;
+  kategoriId: string;
+  supplierId: string;
+  satuan: string;
+  stokAktual: number;
+  stokMin: number;
+  stokMaks: number;
+  harga: number;
+  statusStok?: StokStatus;
+  lokasiGudang: string;
+  updatedAt?: Date;
 }
 
 export interface StockTransaction {
-  id?:            string;
-  materialId:     string;
-  jenis:          TxJenis;
-  jumlah:         number;
-  refTipe:        "WO" | "PO" | "KOREKSI";
-  refId:          string;
-  stokSebelum:    number;
-  stokSesudah:    number;
-  dilakukanOleh:  string;
-  catatan:        string;
-  createdAt?:     Date;
+  id?: string;
+  materialId: string;
+  jenis: TxJenis;
+  jumlah: number;
+  refTipe: "WO" | "PO" | "KOREKSI";
+  refId: string;
+  stokSebelum: number;
+  stokSesudah: number;
+  dilakukanOleh: string;
+  catatan: string;
+  createdAt?: Date;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -81,15 +101,19 @@ export interface StockTransaction {
 
 /** Ambil semua work order, diurutkan dari terbaru */
 export async function getWorkOrders(filters?: {
-  status?:    WoStatus;
+  status?: WoStatus;
   operatorId?: string;
 }): Promise<WorkOrder[]> {
   const constraints: QueryConstraint[] = [orderBy("createdAt", "desc")];
-  if (filters?.status)     constraints.unshift(where("status",     "==", filters.status));
-  if (filters?.operatorId) constraints.unshift(where("operatorId", "==", filters.operatorId));
+  if (filters?.status)
+    constraints.unshift(where("status", "==", filters.status));
+  if (filters?.operatorId)
+    constraints.unshift(where("operatorId", "==", filters.operatorId));
 
-  const snap = await getDocs(query(collection(db, "workOrders"), ...constraints));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder));
+  const snap = await getDocs(
+    query(collection(db, "workOrders"), ...constraints)
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as WorkOrder));
 }
 
 /** Ambil satu work order by ID */
@@ -132,24 +156,26 @@ export async function deleteWorkOrder(woId: string): Promise<void> {
  * Menambah jumlah selesai & cacat, lalu mencatat log secara atomik (transaction).
  */
 export async function updateWoProgress(
-  woId:         string,
-  operatorId:   string,
+  woId: string,
+  operatorId: string,
   tambahSelesai: number,
-  tambahCacat:   number,
-  catatan:       string
+  tambahCacat: number,
+  catatan: string
 ): Promise<void> {
   await runTransaction(db, async (tx) => {
-    const woRef  = doc(db, "workOrders", woId);
+    const woRef = doc(db, "workOrders", woId);
     const woSnap = await tx.get(woRef);
     if (!woSnap.exists()) throw new Error("Work order tidak ditemukan");
 
     const wo = woSnap.data() as WorkOrder;
     const newSelesai = wo.jumlahSelesai + tambahSelesai;
-    const newCacat   = wo.jumlahCacat   + tambahCacat;
+    const newCacat = wo.jumlahCacat + tambahCacat;
 
     // Validasi tidak melebihi target
     if (newSelesai > wo.jumlahTarget) {
-      throw new Error(`Jumlah selesai (${newSelesai}) melebihi target (${wo.jumlahTarget})`);
+      throw new Error(
+        `Jumlah selesai (${newSelesai}) melebihi target (${wo.jumlahTarget})`
+      );
     }
 
     // Tentukan status otomatis
@@ -159,21 +185,22 @@ export async function updateWoProgress(
 
     // Update WO utama
     tx.update(woRef, {
-      jumlahSelesai:  newSelesai,
-      jumlahCacat:    newCacat,
-      status:         newStatus,
-      tanggalSelesai: newStatus === "selesai" ? new Date().toISOString().slice(0, 10) : null,
-      updatedAt:      serverTimestamp(),
+      jumlahSelesai: newSelesai,
+      jumlahCacat: newCacat,
+      status: newStatus,
+      tanggalSelesai:
+        newStatus === "selesai" ? new Date().toISOString().slice(0, 10) : null,
+      updatedAt: serverTimestamp(),
     });
 
     // Tambah progress log (subcollection)
     const logRef = doc(collection(db, `workOrders/${woId}/progressLogs`));
     tx.set(logRef, {
       jumlahSelesaiTambah: tambahSelesai,
-      jumlahCacatTambah:   tambahCacat,
-      dicatatOleh:         operatorId,
+      jumlahCacatTambah: tambahCacat,
+      dicatatOleh: operatorId,
       catatan,
-      createdAt:           serverTimestamp(),
+      createdAt: serverTimestamp(),
     });
   });
 }
@@ -186,16 +213,18 @@ export async function getProgressLogs(woId: string): Promise<ProgressLog[]> {
       orderBy("createdAt", "desc")
     )
   );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ProgressLog));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProgressLog));
 }
 
 /** Realtime listener untuk satu WO (cocok untuk halaman detail WO staf produksi) */
 export function listenWorkOrder(
-  woId:     string,
+  woId: string,
   callback: (wo: WorkOrder | null) => void
 ): Unsubscribe {
   return onSnapshot(doc(db, "workOrders", woId), (snap) => {
-    callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as WorkOrder) : null);
+    callback(
+      snap.exists() ? ({ id: snap.id, ...snap.data() } as WorkOrder) : null
+    );
   });
 }
 
@@ -210,7 +239,7 @@ export function listenActiveWorkOrders(
       orderBy("createdAt", "desc")
     ),
     (snap) => {
-      callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder)));
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as WorkOrder)));
     }
   );
 }
@@ -225,11 +254,15 @@ export async function getMaterials(filters?: {
   statusStok?: StokStatus;
 }): Promise<Material[]> {
   const constraints: QueryConstraint[] = [orderBy("nama")];
-  if (filters?.kategoriId) constraints.unshift(where("kategoriId", "==", filters.kategoriId));
-  if (filters?.statusStok) constraints.unshift(where("statusStok", "==", filters.statusStok));
+  if (filters?.kategoriId)
+    constraints.unshift(where("kategoriId", "==", filters.kategoriId));
+  if (filters?.statusStok)
+    constraints.unshift(where("statusStok", "==", filters.statusStok));
 
-  const snap = await getDocs(query(collection(db, "materials"), ...constraints));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Material));
+  const snap = await getDocs(
+    query(collection(db, "materials"), ...constraints)
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Material));
 }
 
 /** Buat bahan baku baru */
@@ -270,7 +303,7 @@ export function listenCriticalMaterials(
       orderBy("nama")
     ),
     (snap) => {
-      callback(snap.docs.map(d => ({ id: d.id, ...d.data() } as Material)));
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Material)));
     }
   );
 }
@@ -280,31 +313,33 @@ export function listenCriticalMaterials(
  * Dipanggil saat: penerimaan bahan (masuk), pemakaian WO (keluar), atau koreksi.
  */
 export async function updateMaterialStock(
-  materialId:    string,
-  jumlah:        number,          // positif = masuk, negatif = keluar
-  jenis:         TxJenis,
-  refTipe:       "WO" | "PO" | "KOREKSI",
-  refId:         string,
+  materialId: string,
+  jumlah: number, // positif = masuk, negatif = keluar
+  jenis: TxJenis,
+  refTipe: "WO" | "PO" | "KOREKSI",
+  refId: string,
   dilakukanOleh: string,
-  catatan:       string = ""
+  catatan: string = ""
 ): Promise<void> {
   await runTransaction(db, async (tx) => {
-    const matRef  = doc(db, "materials", materialId);
+    const matRef = doc(db, "materials", materialId);
     const matSnap = await tx.get(matRef);
     if (!matSnap.exists()) throw new Error("Bahan baku tidak ditemukan");
 
-    const mat       = matSnap.data() as Material;
-    const stokLama  = mat.stokAktual;
-    const stokBaru  = stokLama + jumlah;
+    const mat = matSnap.data() as Material;
+    const stokLama = mat.stokAktual;
+    const stokBaru = stokLama + jumlah;
 
     if (stokBaru < 0) {
-      throw new Error(`Stok tidak cukup. Stok saat ini: ${stokLama} ${mat.satuan}`);
+      throw new Error(
+        `Stok tidak cukup. Stok saat ini: ${stokLama} ${mat.satuan}`
+      );
     }
 
     // Hitung status stok baru
     let statusStok: StokStatus = "aman";
     if (stokBaru <= mat.stokMin * 0.5) statusStok = "kritis";
-    else if (stokBaru < mat.stokMin)    statusStok = "rendah";
+    else if (stokBaru < mat.stokMin) statusStok = "rendah";
 
     // Update stok
     tx.update(matRef, {
@@ -318,14 +353,14 @@ export async function updateMaterialStock(
     tx.set(txRef, {
       materialId,
       jenis,
-      jumlah:         Math.abs(jumlah),
+      jumlah: Math.abs(jumlah),
       refTipe,
       refId,
-      stokSebelum:    stokLama,
-      stokSesudah:    stokBaru,
+      stokSebelum: stokLama,
+      stokSesudah: stokBaru,
       dilakukanOleh,
       catatan,
-      createdAt:      serverTimestamp(),
+      createdAt: serverTimestamp(),
     });
   });
 }
@@ -333,7 +368,7 @@ export async function updateMaterialStock(
 /** Ambil riwayat transaksi bahan baku */
 export async function getStockTransactions(
   materialId: string,
-  limitCount:  number = 20
+  limitCount: number = 20
 ): Promise<StockTransaction[]> {
   const snap = await getDocs(
     query(
@@ -343,25 +378,61 @@ export async function getStockTransactions(
       limit(limitCount)
     )
   );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as StockTransaction));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as StockTransaction));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PRODUCTS
 // ─────────────────────────────────────────────────────────────────────────────
 
+export interface ProductVariant {
+  id?: string;
+  namaWarna: string;
+  kodeHex: string;
+  stokJadi: number;
+}
+
+export interface BomItem {
+  id?: string;
+  materialId: string;
+  jumlahPerUnit: number;
+  satuan: string;
+}
+
+export interface ProductCategory {
+  id?: string;
+  nama: string;
+  deskripsi?: string;
+}
+
 export interface Product {
   id?: string;
   kode: string;
   nama: string;
-  deskripsi: string;
+  deskripsi?: string;
   kategoriId: string;
-  hargaJual: number;
+  bahanUtama: string; // ← field baru sesuai seed
+  ukuran: string; // ← field baru sesuai seed
+  hargaPokok: number; // ← field baru sesuai seed (ganti hargaJual)
+  hargaJual?: number; // opsional, bisa diisi manual
   aktif: boolean;
 }
 
-/** Ambil semua produk aktif */
+// ── Fungsi Produk ─────────────────────────────────────────────────────────────
+
+/** Ambil semua produk (aktif maupun nonaktif), diurutkan nama */
 export async function getProducts(kategoriId?: string): Promise<Product[]> {
+  const constraints: QueryConstraint[] = [orderBy("nama")];
+  if (kategoriId) constraints.unshift(where("kategoriId", "==", kategoriId));
+
+  const snap = await getDocs(query(collection(db, "products"), ...constraints));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
+}
+
+/** Ambil semua produk yang aktif saja */
+export async function getActiveProducts(
+  kategoriId?: string
+): Promise<Product[]> {
   const constraints: QueryConstraint[] = [
     where("aktif", "==", true),
     orderBy("nama"),
@@ -369,13 +440,54 @@ export async function getProducts(kategoriId?: string): Promise<Product[]> {
   if (kategoriId) constraints.unshift(where("kategoriId", "==", kategoriId));
 
   const snap = await getDocs(query(collection(db, "products"), ...constraints));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
 }
 
-/** Ambil BOM (resep bahan) untuk satu produk */
-export async function getProductBom(productId: string) {
+/** Buat produk baru */
+export async function createProduct(
+  data: Omit<Product, "id">
+): Promise<string> {
+  const ref = await addDoc(collection(db, "products"), {
+    ...data,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/** Update produk */
+export async function updateProduct(
+  productId: string,
+  data: Partial<Product>
+): Promise<void> {
+  await updateDoc(doc(db, "products", productId), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Hapus produk */
+export async function deleteProduct(productId: string): Promise<void> {
+  await deleteDoc(doc(db, "products", productId));
+}
+
+/** Ambil semua kategori produk */
+export async function getProductCategories(): Promise<ProductCategory[]> {
+  const snap = await getDocs(collection(db, "productCategories"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductCategory));
+}
+
+/** Ambil varian warna sebuah produk */
+export async function getProductVariants(
+  productId: string
+): Promise<ProductVariant[]> {
+  const snap = await getDocs(collection(db, `products/${productId}/variants`));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductVariant));
+}
+
+/** Ambil BOM (resep bahan) sebuah produk */
+export async function getProductBom(productId: string): Promise<BomItem[]> {
   const snap = await getDocs(collection(db, `products/${productId}/bom`));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BomItem));
 }
 
 export interface ProductionUnit {
@@ -391,14 +503,10 @@ export interface ProductionUnit {
 
 /** Ambil semua unit produksi */
 export async function getProductionUnits(): Promise<ProductionUnit[]> {
-  const snap = await getDocs(query(collection(db, "productionUnits"), orderBy("nama")));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as ProductionUnit));
-}
-
-/** Ambil varian warna sebuah produk */
-export async function getProductVariants(productId: string) {
-  const snap = await getDocs(collection(db, `products/${productId}/variants`));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const snap = await getDocs(
+    query(collection(db, "productionUnits"), orderBy("nama"))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductionUnit));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -408,24 +516,25 @@ export async function getProductVariants(productId: string) {
 /** Ambil statistik ringkasan untuk dashboard */
 export async function getDashboardStats() {
   const [woSnap, matCritSnap] = await Promise.all([
-    getDocs(query(
-      collection(db, "workOrders"),
-      where("status", "in", ["berjalan", "tertunda", "dijadwalkan"])
-    )),
-    getDocs(query(
-      collection(db, "materials"),
-      where("statusStok", "==", "kritis")
-    )),
+    getDocs(
+      query(
+        collection(db, "workOrders"),
+        where("status", "in", ["berjalan", "tertunda", "dijadwalkan"])
+      )
+    ),
+    getDocs(
+      query(collection(db, "materials"), where("statusStok", "==", "kritis"))
+    ),
   ]);
 
-  const wos = woSnap.docs.map(d => d.data() as WorkOrder);
+  const wos = woSnap.docs.map((d) => d.data() as WorkOrder);
 
   return {
-    woAktif:        wos.filter(w => w.status === "berjalan").length,
-    woTertunda:     wos.filter(w => w.status === "tertunda").length,
-    woDijadwalkan:  wos.filter(w => w.status === "dijadwalkan").length,
-    stokKritis:     matCritSnap.size,
-    totalProgress:  wos.reduce((s, w) => s + w.jumlahSelesai, 0),
-    totalTarget:    wos.reduce((s, w) => s + w.jumlahTarget,  0),
+    woAktif: wos.filter((w) => w.status === "berjalan").length,
+    woTertunda: wos.filter((w) => w.status === "tertunda").length,
+    woDijadwalkan: wos.filter((w) => w.status === "dijadwalkan").length,
+    stokKritis: matCritSnap.size,
+    totalProgress: wos.reduce((s, w) => s + w.jumlahSelesai, 0),
+    totalTarget: wos.reduce((s, w) => s + w.jumlahTarget, 0),
   };
 }

@@ -19,21 +19,29 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: "Bahan Baku",
     subtitle: "Kelola stok & informasi bahan baku",
   },
+  "/persediaan/penerimaan": {
+    title: "Penerimaan Bahan",
+    subtitle: "Catat penerimaan bahan baku dari supplier",
+  },
+  "/persediaan/pengeluaran": {
+    title: "Pengeluaran Bahan",
+    subtitle: "Catat pengeluaran bahan ke lantai produksi",
+  },
   "/pengguna": {
     title: "Manajemen Pengguna",
-    subtitle: "Kelola akun & hak akses tim"
+    subtitle: "Kelola akun & hak akses tim",
   },
   "/laporan": {
     title: "Laporan",
-    subtitle: "Laporan Produksi & Stok"
+    subtitle: "Laporan Produksi & Stok",
   },
   "/katalogproduk": {
     title: "Katalog Produk",
-    subtitle: "Daftar produk & desain yang tersedia"
+    subtitle: "Daftar produk & desain yang tersedia",
   },
   "/pengaturan": {
     title: "Pengaturan",
-    subtitle: "Konfigurasi sistem"
+    subtitle: "Konfigurasi sistem",
   },
 };
 

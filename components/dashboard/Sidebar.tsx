@@ -42,8 +42,8 @@ const menuItems = [
     icon: Package,
     children: [
       { label: "Bahan Baku", href: "/persediaan/bahan-baku", icon: Boxes },
-      { label: "Penerimaan", href: "/", icon: Truck },
-      { label: "Pengeluaran", href: "/", icon: Package },
+      { label: "Penerimaan", href: "/persediaan/penerimaan", icon: Truck },
+      { label: "Pengeluaran", href: "/persediaan/pengeluaran", icon: Package },
     ],
   },
   {
