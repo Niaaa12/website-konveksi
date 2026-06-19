@@ -13,7 +13,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   },
   "/produksi/jadwal": {
     title: "Jadwal Produksi",
-    subtitle: "Perencanaan & penjadwalan lini produksi",
+    subtitle: "Kelola work order, pantau progress, dan lihat timeline produksi",
   },
   "/persediaan/bahan-baku": {
     title: "Bahan Baku",
