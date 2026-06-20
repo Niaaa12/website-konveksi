@@ -385,54 +385,18 @@ export async function getStockTransactions(
 // PRODUCTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface ProductVariant {
-  id?: string;
-  namaWarna: string;
-  kodeHex: string;
-  stokJadi: number;
-}
-
-export interface BomItem {
-  id?: string;
-  materialId: string;
-  jumlahPerUnit: number;
-  satuan: string;
-}
-
-export interface ProductCategory {
-  id?: string;
-  nama: string;
-  deskripsi?: string;
-}
-
 export interface Product {
   id?: string;
   kode: string;
   nama: string;
-  deskripsi?: string;
+  deskripsi: string;
   kategoriId: string;
-  bahanUtama: string; // ← field baru sesuai seed
-  ukuran: string; // ← field baru sesuai seed
-  hargaPokok: number; // ← field baru sesuai seed (ganti hargaJual)
-  hargaJual?: number; // opsional, bisa diisi manual
+  hargaJual: number;
   aktif: boolean;
 }
 
-// ── Fungsi Produk ─────────────────────────────────────────────────────────────
-
-/** Ambil semua produk (aktif maupun nonaktif), diurutkan nama */
+/** Ambil semua produk aktif */
 export async function getProducts(kategoriId?: string): Promise<Product[]> {
-  const constraints: QueryConstraint[] = [orderBy("nama")];
-  if (kategoriId) constraints.unshift(where("kategoriId", "==", kategoriId));
-
-  const snap = await getDocs(query(collection(db, "products"), ...constraints));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
-}
-
-/** Ambil semua produk yang aktif saja */
-export async function getActiveProducts(
-  kategoriId?: string
-): Promise<Product[]> {
   const constraints: QueryConstraint[] = [
     where("aktif", "==", true),
     orderBy("nama"),
@@ -443,51 +407,10 @@ export async function getActiveProducts(
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
 }
 
-/** Buat produk baru */
-export async function createProduct(
-  data: Omit<Product, "id">
-): Promise<string> {
-  const ref = await addDoc(collection(db, "products"), {
-    ...data,
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
-}
-
-/** Update produk */
-export async function updateProduct(
-  productId: string,
-  data: Partial<Product>
-): Promise<void> {
-  await updateDoc(doc(db, "products", productId), {
-    ...data,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-/** Hapus produk */
-export async function deleteProduct(productId: string): Promise<void> {
-  await deleteDoc(doc(db, "products", productId));
-}
-
-/** Ambil semua kategori produk */
-export async function getProductCategories(): Promise<ProductCategory[]> {
-  const snap = await getDocs(collection(db, "productCategories"));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductCategory));
-}
-
-/** Ambil varian warna sebuah produk */
-export async function getProductVariants(
-  productId: string
-): Promise<ProductVariant[]> {
-  const snap = await getDocs(collection(db, `products/${productId}/variants`));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductVariant));
-}
-
-/** Ambil BOM (resep bahan) sebuah produk */
-export async function getProductBom(productId: string): Promise<BomItem[]> {
+/** Ambil BOM (resep bahan) untuk satu produk */
+export async function getProductBom(productId: string) {
   const snap = await getDocs(collection(db, `products/${productId}/bom`));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BomItem));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export interface ProductionUnit {
@@ -507,6 +430,33 @@ export async function getProductionUnits(): Promise<ProductionUnit[]> {
     query(collection(db, "productionUnits"), orderBy("nama"))
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductionUnit));
+}
+
+/** Ambil varian warna sebuah produk */
+export async function getProductVariants(productId: string) {
+  const snap = await getDocs(collection(db, `products/${productId}/variants`));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USERS / OPERATOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AppUser {
+  id?: string;
+  email: string;
+  nama: string;
+  role: "admin" | "manajer" | "produksi" | "gudang";
+  jabatan: string;
+  aktif: boolean;
+}
+
+/** Ambil daftar pengguna yang bisa ditugaskan sebagai operator/PIC work order */
+export async function getOperators(): Promise<AppUser[]> {
+  const snap = await getDocs(collection(db, "users"));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as AppUser))
+    .filter((u) => u.aktif && (u.role === "produksi" || u.role === "manajer"));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
