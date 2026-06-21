@@ -413,23 +413,172 @@ export async function getProductBom(productId: string) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+export type UnitKategori =
+  | "jahit"
+  | "obras"
+  | "potong"
+  | "finishing"
+  | "qc"
+  | "lainnya";
+
 export interface ProductionUnit {
   id?: string;
   kode: string;
   nama: string;
-  jenis: string;
-  status: string;
-  efisiensi: number;
+  jenis: string; // deskripsi detail mesin, mis. "Mesin Jahit High Speed Juki"
+  kategori: UnitKategori; // kategori standar untuk pengelompokan & filter
+  status: "aktif" | "idle" | "maintenance";
+  efisiensi: number; // dihitung otomatis, lihat hitungEfisiensiUnit()
   jadwalMaintenance: string;
   catatan: string;
+  picId?: string;
 }
 
-/** Ambil semua unit produksi */
+export interface UnitKategoriSummary {
+  kategori: UnitKategori;
+  label: string;
+  total: number;
+  aktif: number;
+  idle: number;
+  maintenance: number;
+  rataEfisiensi: number;
+}
+
+const KATEGORI_LABEL: Record<UnitKategori, string> = {
+  jahit: "Jahit",
+  obras: "Obras",
+  potong: "Potong",
+  finishing: "Finishing",
+  qc: "QC",
+  lainnya: "Lainnya",
+};
+
+/**
+ * Hitung efisiensi satu unit produksi berdasarkan histori Work Order-nya.
+ * Rumus: Tingkat Output × Tingkat Kualitas × 100
+ *   - Tingkat Output  = total jumlahSelesai ÷ total jumlahTarget (semua WO unit ini)
+ *   - Tingkat Kualitas = (jumlahSelesai − jumlahCacat) ÷ jumlahSelesai
+ * Unit berstatus "maintenance" atau belum pernah punya WO selesai/berjalan → efisiensi 0.
+ */
+export function hitungEfisiensiUnit(
+  unitId: string,
+  unitStatus: string,
+  workOrders: WorkOrder[]
+): number {
+  if (unitStatus === "maintenance") return 0;
+
+  const woUnit = workOrders.filter(
+    (wo) =>
+      wo.unitId === unitId &&
+      (wo.status === "berjalan" || wo.status === "selesai")
+  );
+  if (woUnit.length === 0) return 0;
+
+  const totalTarget = woUnit.reduce((s, wo) => s + wo.jumlahTarget, 0);
+  const totalSelesai = woUnit.reduce((s, wo) => s + wo.jumlahSelesai, 0);
+  const totalCacat = woUnit.reduce((s, wo) => s + wo.jumlahCacat, 0);
+
+  if (totalTarget === 0 || totalSelesai === 0) return 0;
+
+  const tingkatOutput = Math.min(1, totalSelesai / totalTarget);
+  const tingkatKualitas = Math.max(
+    0,
+    (totalSelesai - totalCacat) / totalSelesai
+  );
+
+  return Math.round(tingkatOutput * tingkatKualitas * 100);
+}
+
+/**
+ * Ambil semua unit produksi dengan efisiensi yang sudah dihitung ulang
+ * (bukan dari field statis di Firestore), berdasarkan WO terbaru.
+ */
+export async function getProductionUnitsWithEfisiensi(): Promise<
+  ProductionUnit[]
+> {
+  const [unitsSnap, wos] = await Promise.all([
+    getDocs(query(collection(db, "productionUnits"), orderBy("nama"))),
+    getWorkOrders(),
+  ]);
+  return unitsSnap.docs.map((d) => {
+    const unit = { id: d.id, ...d.data() } as ProductionUnit;
+    return {
+      ...unit,
+      efisiensi: hitungEfisiensiUnit(unit.id!, unit.status, wos),
+    };
+  });
+}
+
+/** Ringkasan unit produksi dikelompokkan per kategori — untuk kartu di dashboard */
+export async function getProductionUnitsSummary(): Promise<
+  UnitKategoriSummary[]
+> {
+  const units = await getProductionUnitsWithEfisiensi();
+  const kategoriList: UnitKategori[] = [
+    "jahit",
+    "obras",
+    "potong",
+    "finishing",
+    "qc",
+    "lainnya",
+  ];
+
+  return kategoriList
+    .map((kategori) => {
+      const grup = units.filter((u) => u.kategori === kategori);
+      const aktifList = grup.filter((u) => u.status === "aktif");
+      return {
+        kategori,
+        label: KATEGORI_LABEL[kategori],
+        total: grup.length,
+        aktif: aktifList.length,
+        idle: grup.filter((u) => u.status === "idle").length,
+        maintenance: grup.filter((u) => u.status === "maintenance").length,
+        rataEfisiensi:
+          aktifList.length > 0
+            ? Math.round(
+                aktifList.reduce((s, u) => s + u.efisiensi, 0) /
+                  aktifList.length
+              )
+            : 0,
+      };
+    })
+    .filter((s) => s.total > 0); // sembunyikan kategori yang belum ada unitnya
+}
+
+/** Ambil semua unit produksi (mentah, tanpa hitung ulang efisiensi) */
 export async function getProductionUnits(): Promise<ProductionUnit[]> {
   const snap = await getDocs(
     query(collection(db, "productionUnits"), orderBy("nama"))
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductionUnit));
+}
+
+/** Buat unit produksi baru */
+export async function createProductionUnit(
+  data: Omit<ProductionUnit, "id">
+): Promise<string> {
+  const ref = await addDoc(collection(db, "productionUnits"), {
+    ...data,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/** Update unit produksi */
+export async function updateProductionUnit(
+  id: string,
+  data: Partial<ProductionUnit>
+): Promise<void> {
+  await updateDoc(doc(db, "productionUnits", id), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Hapus unit produksi */
+export async function deleteProductionUnit(id: string): Promise<void> {
+  await deleteDoc(doc(db, "productionUnits", id));
 }
 
 /** Ambil varian warna sebuah produk */

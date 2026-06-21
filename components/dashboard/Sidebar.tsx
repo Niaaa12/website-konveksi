@@ -38,6 +38,7 @@ const menuItems = [
       { label: "Jadwal Produksi", href: "/produksi/jadwal", icon: Factory },
     ],
   },
+  { label: "Unit Produksi",    href: "/unitproduksi",    icon: Factory },
   {
     label: "Persediaan",
     icon: Package,

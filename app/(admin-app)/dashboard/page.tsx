@@ -1,6 +1,7 @@
 "use client";
 
 import { StatCard } from "@/components/dashboard/StatCard";
+import { DashboardUnitProduksiSummary } from "@/components/dashboard/DashboardUnitProduksiSummary";
 import {
   AlertTriangle,
   ArrowRight,
@@ -13,20 +14,54 @@ import {
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { getDashboardStats, getMaterials, getProductionUnits, getWorkOrders, getProducts, ProductionUnit } from "@/lib/firestore";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import {
+  getDashboardStats,
+  getMaterials,
+  getProductionUnits,
+  getWorkOrders,
+  getProducts,
+  ProductionUnit,
+} from "@/lib/firestore";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
-const COLORS = ["#003247", "#005577", "#0088cc", "#33aaff", "#88ccff", "#b3e0ff"];
+const COLORS = [
+  "#003247",
+  "#005577",
+  "#0088cc",
+  "#33aaff",
+  "#88ccff",
+  "#b3e0ff",
+];
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    Berjalan: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
+    Berjalan:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400",
     Selesai: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
-    Tertunda: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
-    Dijadwalkan: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+    Tertunda:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+    Dijadwalkan:
+      "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
   };
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium", map[status] ?? "bg-gray-100 text-gray-600")}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium",
+        map[status] ?? "bg-gray-100 text-gray-600"
+      )}
+    >
       {status}
     </span>
   );
@@ -34,10 +69,25 @@ function StatusBadge({ status }: { status: string }) {
 
 function StokBadge({ stok, stokMin }: { stok: number; stokMin: number }) {
   if (stok <= 0)
-    return <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700"><span className="h-1 w-1 rounded-full bg-red-500" />Habis</span>;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">
+        <span className="h-1 w-1 rounded-full bg-red-500" />
+        Habis
+      </span>
+    );
   if (stok <= stokMin)
-    return <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700"><span className="h-1 w-1 rounded-full bg-amber-500" />Kritis</span>;
-  return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700"><span className="h-1 w-1 rounded-full bg-emerald-500" />Aman</span>;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+        <span className="h-1 w-1 rounded-full bg-amber-500" />
+        Kritis
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+      <span className="h-1 w-1 rounded-full bg-emerald-500" />
+      Aman
+    </span>
+  );
 }
 
 export default function DashboardPage() {
@@ -55,7 +105,9 @@ export default function DashboardPage() {
   const [recentWos, setRecentWos] = useState<any[]>([]);
   const [recentMaterials, setRecentMaterials] = useState<any[]>([]);
   const [unitsList, setUnitsList] = useState<ProductionUnit[]>([]);
-  const [distData, setDistData] = useState<{ name: string; value: number }[]>([]);
+  const [distData, setDistData] = useState<{ name: string; value: number }[]>(
+    []
+  );
 
   useEffect(() => {
     async function load() {
@@ -95,18 +147,24 @@ export default function DashboardPage() {
         setUnitsList(units);
 
         // Sum inventory value
-        const totalVal = materials.reduce((sum, m) => sum + (m.stokAktual * m.harga), 0);
+        const totalVal = materials.reduce(
+          (sum, m) => sum + m.stokAktual * m.harga,
+          0
+        );
         setNilaiPersediaan(totalVal);
 
         // Average efficiency
-        const avgEff = units.length > 0
-          ? Math.round(units.reduce((sum, u) => sum + u.efisiensi, 0) / units.length)
-          : 0;
+        const avgEff =
+          units.length > 0
+            ? Math.round(
+                units.reduce((sum, u) => sum + u.efisiensi, 0) / units.length
+              )
+            : 0;
         setEfisiensiProd(avgEff);
 
         // Map recent 5 WOs
-        const mappedWos = wos.slice(0, 5).map(wo => {
-          const prod = prods.find(p => p.id === wo.productId);
+        const mappedWos = wos.slice(0, 5).map((wo) => {
+          const prod = prods.find((p) => p.id === wo.productId);
           return {
             id: wo.id || "",
             produk: prod ? prod.nama : "Produk Tidak Dikenal",
@@ -117,7 +175,7 @@ export default function DashboardPage() {
         setRecentWos(mappedWos);
 
         // Map top 5 materials
-        const mappedMaterials = materials.slice(0, 5).map(m => ({
+        const mappedMaterials = materials.slice(0, 5).map((m) => ({
           id: m.id || "",
           nama: m.nama,
           stok: m.stokAktual,
@@ -127,17 +185,32 @@ export default function DashboardPage() {
         setRecentMaterials(mappedMaterials);
 
         // Distribution by category
-        const categories = ["Kain", "Benang", "Aksesori", "Pewarna", "Kemasan", "Lainnya"];
-        const distribution = categories.map(cat => {
-          const filtered = materials.filter(m => {
-            const mCat = m.kategoriId.startsWith("cat-") ? m.kategoriId.replace("cat-", "") : m.kategoriId;
-            return mCat.toLowerCase().includes(cat.toLowerCase().substring(0, 4));
-          });
-          const value = filtered.reduce((sum, m) => sum + (m.stokAktual * m.harga), 0);
-          return { name: cat, value };
-        }).filter(d => d.value > 0);
+        const categories = [
+          "Kain",
+          "Benang",
+          "Aksesori",
+          "Pewarna",
+          "Kemasan",
+          "Lainnya",
+        ];
+        const distribution = categories
+          .map((cat) => {
+            const filtered = materials.filter((m) => {
+              const mCat = m.kategoriId.startsWith("cat-")
+                ? m.kategoriId.replace("cat-", "")
+                : m.kategoriId;
+              return mCat
+                .toLowerCase()
+                .includes(cat.toLowerCase().substring(0, 4));
+            });
+            const value = filtered.reduce(
+              (sum, m) => sum + m.stokAktual * m.harga,
+              0
+            );
+            return { name: cat, value };
+          })
+          .filter((d) => d.value > 0);
         setDistData(distribution);
-
       } catch (e) {
         console.error("Failed to load dashboard data", e);
       } finally {
@@ -153,7 +226,11 @@ export default function DashboardPage() {
     { name: "Feb", target: 5000, aktual: 4900 },
     { name: "Mar", target: 5500, aktual: 5100 },
     { name: "Apr", target: 6000, aktual: 5800 },
-    { name: "Mei", target: stats.totalTarget || 5000, aktual: stats.totalProgress || 4500 },
+    {
+      name: "Mei",
+      target: stats.totalTarget || 5000,
+      aktual: stats.totalProgress || 4500,
+    },
   ];
 
   if (loading) {
@@ -178,7 +255,8 @@ export default function DashboardPage() {
               Bahan Baku Stok Kritis!
             </p>
             <p className="text-xs text-red-600/80 dark:text-red-400/70 mt-0.5">
-              Ada {stats.stokKritis} jenis bahan baku yang berada di bawah stok minimum. Segera lakukan pemesanan ulang.
+              Ada {stats.stokKritis} jenis bahan baku yang berada di bawah stok
+              minimum. Segera lakukan pemesanan ulang.
             </p>
           </div>
           <Link
@@ -250,14 +328,42 @@ export default function DashboardPage() {
           </div>
           <div className="w-full">
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
+                <XAxis
+                  dataKey="name"
+                  stroke="#888888"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#888888"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                />
                 <Tooltip />
-                <Legend iconSize={10} iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="target" name="Target" fill="#b3e0ff" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="aktual" name="Aktual" fill="#003247" radius={[4, 4, 0, 0]} />
+                <Legend
+                  iconSize={10}
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 11 }}
+                />
+                <Bar
+                  dataKey="target"
+                  name="Target"
+                  fill="#b3e0ff"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="aktual"
+                  name="Aktual"
+                  fill="#003247"
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -284,11 +390,23 @@ export default function DashboardPage() {
                   dataKey="value"
                 >
                   {distData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => `Rp ${value.toLocaleString("id-ID")}`} />
-                <Legend iconSize={8} layout="horizontal" verticalAlign="bottom" wrapperStyle={{ fontSize: 10 }} />
+                <Tooltip
+                  formatter={(value: number) =>
+                    `Rp ${value.toLocaleString("id-ID")}`
+                  }
+                />
+                <Legend
+                  iconSize={8}
+                  layout="horizontal"
+                  verticalAlign="bottom"
+                  wrapperStyle={{ fontSize: 10 }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -322,15 +440,28 @@ export default function DashboardPage() {
                 <tbody className="divide-y divide-border">
                   {recentWos.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="text-center py-6 text-xs text-muted-foreground">Tidak ada work order aktif</td>
+                      <td
+                        colSpan={4}
+                        className="text-center py-6 text-xs text-muted-foreground"
+                      >
+                        Tidak ada work order aktif
+                      </td>
                     </tr>
                   ) : (
-                    recentWos.map(wo => (
+                    recentWos.map((wo) => (
                       <tr key={wo.id} className="text-xs hover:bg-muted/10">
-                        <td className="py-2.5 font-mono text-muted-foreground">{wo.id}</td>
-                        <td className="py-2.5 font-medium text-foreground">{wo.produk}</td>
-                        <td className="py-2.5 text-right font-medium">{wo.target}</td>
-                        <td className="py-2.5 text-center"><StatusBadge status={wo.status} /></td>
+                        <td className="py-2.5 font-mono text-muted-foreground">
+                          {wo.id}
+                        </td>
+                        <td className="py-2.5 font-medium text-foreground">
+                          {wo.produk}
+                        </td>
+                        <td className="py-2.5 text-right font-medium">
+                          {wo.target}
+                        </td>
+                        <td className="py-2.5 text-center">
+                          <StatusBadge status={wo.status} />
+                        </td>
                       </tr>
                     ))
                   )}
@@ -364,14 +495,25 @@ export default function DashboardPage() {
                 <tbody className="divide-y divide-border">
                   {recentMaterials.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="text-center py-6 text-xs text-muted-foreground">Tidak ada bahan baku</td>
+                      <td
+                        colSpan={3}
+                        className="text-center py-6 text-xs text-muted-foreground"
+                      >
+                        Tidak ada bahan baku
+                      </td>
                     </tr>
                   ) : (
-                    recentMaterials.map(m => (
+                    recentMaterials.map((m) => (
                       <tr key={m.id} className="text-xs hover:bg-muted/10">
-                        <td className="py-2.5 font-medium text-foreground">{m.nama}</td>
-                        <td className="py-2.5 text-right text-muted-foreground">{m.stok.toLocaleString("id-ID")} {m.satuan}</td>
-                        <td className="py-2.5 text-right"><StokBadge stok={m.stok} stokMin={m.stokMin} /></td>
+                        <td className="py-2.5 font-medium text-foreground">
+                          {m.nama}
+                        </td>
+                        <td className="py-2.5 text-right text-muted-foreground">
+                          {m.stok.toLocaleString("id-ID")} {m.satuan}
+                        </td>
+                        <td className="py-2.5 text-right">
+                          <StokBadge stok={m.stok} stokMin={m.stokMin} />
+                        </td>
                       </tr>
                     ))
                   )}
@@ -383,52 +525,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Status Mesin */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h2 className="text-sm font-semibold">Status Lini Produksi</h2>
-          <div className="flex gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" /> Aktif
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-amber-500" /> Maintenance
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-gray-400" /> Idle
-            </span>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
-          {unitsList.length === 0 ? (
-            <div className="p-5 col-span-4 text-center text-xs text-muted-foreground">Tidak ada lini produksi</div>
-          ) : (
-            unitsList.map(unit => (
-              <div key={unit.id} className="p-5">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <p className="font-semibold text-sm">{unit.nama}</p>
-                    <p className="text-xs text-muted-foreground">{unit.jenis}</p>
-                  </div>
-                  <span className={cn(
-                    "h-2 w-2 rounded-full",
-                    unit.status === "aktif" ? "bg-emerald-500" :
-                    unit.status === "maintenance" ? "bg-amber-500" : "bg-gray-400"
-                  )} />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Efisiensi</span>
-                    <span className="font-medium">{unit.efisiensi}%</span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                    <div className="h-full bg-[#003247] rounded-full" style={{ width: `${unit.efisiensi}%` }} />
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      <DashboardUnitProduksiSummary />
     </div>
   );
 }
