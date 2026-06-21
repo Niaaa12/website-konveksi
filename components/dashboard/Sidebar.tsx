@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { SidebarStokKritisSection } from "@/components/alert/SidebarStokKritisSection";
 
 const menuItems = [
   {
@@ -129,7 +130,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   active={
                     item.href !== "/" &&
                     (pathname === item.href ||
-                    pathname.startsWith(item.href + "/"))
+                      pathname.startsWith(item.href + "/"))
                   }
                   onClick={onClose}
                 />
@@ -139,17 +140,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         {/* Notifikasi kritis */}
-        <div className="m-3 rounded-lg bg-red-950/50 border border-red-900/50 p-3">
-          <div className="flex items-center gap-2">
-            <Bell className="h-3.5 w-3.5 text-red-400" />
-            <span className="text-xs font-medium text-red-300">
-              Stok Kritis!
-            </span>
-          </div>
-          <p className="mt-1 text-[10px] text-red-400/80">
-            Beberapa bahan baku perlu segera dipesan
-          </p>
-        </div>
+        <SidebarStokKritisSection />
 
         {/* User */}
         <div className="border-t border-sidebar-border p-3">

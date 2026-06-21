@@ -2,12 +2,15 @@
 
 import { cn } from "@/lib/utils";
 import {
+  StokKritisAlertFull,
+  hitungStokKritis,
+} from "@/components//alert/StokKritisAlert";
+import {
   Plus, Search, Filter, Download, Edit, Trash2, Eye,
-  X, Loader2, Boxes, AlignLeft, Hash, ChevronDown,
-  AlertTriangle, AlertCircle,
+  X, Loader2, Boxes, AlignLeft, ChevronDown, AlertCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getMaterials, createMaterial, updateMaterial, deleteMaterial, Material } from "@/lib/firestore";
+import { getMaterials, createMaterial, updateMaterial, deleteMaterial } from "@/lib/firestore";
 
 
 const BRAND = "#003247";
@@ -360,8 +363,7 @@ export default function BahanBakuPage() {
     return matchSearch && matchKategori;
   });
 
-  const stokKritis = data.filter(b => b.stok <= b.stokMin && b.stok > 0).length;
-  const stokHabis = data.filter(b => b.stok <= 0).length;
+  const { stokKritis, stokHabis } = hitungStokKritis(data);
 
   async function handleAdd(form: BahanForm) {
     try {
@@ -415,55 +417,69 @@ export default function BahanBakuPage() {
   return (
     <div className="space-y-5">
       {/* Alert stok kritis */}
-      {(stokKritis > 0 || stokHabis > 0) && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
-          <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Perhatian Stok!</p>
-            <p className="text-xs text-amber-600/80 dark:text-amber-400/70 mt-0.5">
-              {stokHabis > 0 && `${stokHabis} bahan habis. `}
-              {stokKritis > 0 && `${stokKritis} bahan dalam kondisi kritis.`}
-            </p>
-          </div>
-        </div>
-      )}
+      <StokKritisAlertFull stokKritis={stokKritis} stokHabis={stokHabis} />
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input type="text" placeholder="Cari nama atau kategori bahan..." value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-[#003247]/30 focus:border-[#003247] transition-all" />
+          <input
+            type="text"
+            placeholder="Cari nama atau kategori bahan..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-[#003247]/30 focus:border-[#003247] transition-all"
+          />
         </div>
         <div className="flex gap-2">
           <button className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-border bg-card hover:bg-accent transition-colors">
-            <Filter className="h-4 w-4" /><span className="hidden sm:inline">Filter</span>
+            <Filter className="h-4 w-4" />
+            <span className="hidden sm:inline">Filter</span>
           </button>
           <button className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-border bg-card hover:bg-accent transition-colors">
-            <Download className="h-4 w-4" /><span className="hidden sm:inline">Export</span>
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Export</span>
           </button>
-          <button onClick={() => setModalOpen(true)}
+          <button
+            onClick={() => setModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg text-white hover:opacity-90 transition-all active:scale-[0.98]"
-            style={{ background: BRAND }}>
-            <Plus className="h-4 w-4" /><span>Tambah Bahan</span>
+            style={{ background: BRAND }}
+          >
+            <Plus className="h-4 w-4" />
+            <span>Tambah Bahan</span>
           </button>
         </div>
       </div>
 
       {/* Kategori filter */}
       <div className="flex gap-1 overflow-x-auto pb-0.5">
-        {kategoriFilter.map(k => {
-          const count = k === "Semua" ? data.length : data.filter(b => b.kategori === k).length;
+        {kategoriFilter.map((k) => {
+          const count =
+            k === "Semua"
+              ? data.length
+              : data.filter((b) => b.kategori === k).length;
           return (
-            <button key={k} onClick={() => setFilterKategori(k)}
-              className={cn("flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors",
-                filterKategori === k ? "text-white" : "bg-card border border-border text-muted-foreground hover:bg-accent")}
-              style={filterKategori === k ? { background: BRAND } : {}}>
+            <button
+              key={k}
+              onClick={() => setFilterKategori(k)}
+              className={cn(
+                "flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors",
+                filterKategori === k
+                  ? "text-white"
+                  : "bg-card border border-border text-muted-foreground hover:bg-accent"
+              )}
+              style={filterKategori === k ? { background: BRAND } : {}}
+            >
               {k}
               {count > 0 && (
-                <span className={cn("ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full",
-                  filterKategori === k ? "bg-white/20 text-white" : "bg-muted text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full",
+                    filterKategori === k
+                      ? "bg-white/20 text-white"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
                   {count}
                 </span>
               )}
@@ -478,9 +494,32 @@ export default function BahanBakuPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                {["ID", "Nama Bahan", "Kategori", "Stok", "Min. Stok", "Satuan", "Harga/Satuan", "Nilai Stok", "Status", "Aksi"].map(h => (
-                  <th key={h} className={cn("px-4 py-3 text-xs font-medium text-muted-foreground",
-                    ["Stok", "Min. Stok", "Harga/Satuan", "Nilai Stok"].includes(h) ? "text-right" : "text-left")}>
+                {[
+                  "ID",
+                  "Nama Bahan",
+                  "Kategori",
+                  "Stok",
+                  "Min. Stok",
+                  "Satuan",
+                  "Harga/Satuan",
+                  "Nilai Stok",
+                  "Status",
+                  "Aksi",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className={cn(
+                      "px-4 py-3 text-xs font-medium text-muted-foreground",
+                      [
+                        "Stok",
+                        "Min. Stok",
+                        "Harga/Satuan",
+                        "Nilai Stok",
+                      ].includes(h)
+                        ? "text-right"
+                        : "text-left"
+                    )}
+                  >
                     {h}
                   </th>
                 ))}
@@ -489,7 +528,10 @@ export default function BahanBakuPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <td
+                    colSpan={10}
+                    className="text-center py-12 text-muted-foreground"
+                  >
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 className="h-8 w-8 animate-spin opacity-50" />
                       <p className="text-sm">Memuat data bahan baku...</p>
@@ -498,15 +540,22 @@ export default function BahanBakuPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-muted-foreground">
+                  <td
+                    colSpan={10}
+                    className="text-center py-12 text-muted-foreground"
+                  >
                     <div className="flex flex-col items-center gap-3">
                       <Boxes className="h-10 w-10 opacity-20" />
                       <div>
                         <p className="text-sm font-medium">
-                          {search || filterKategori !== "Semua" ? "Tidak ada hasil yang cocok" : "Belum ada data bahan baku"}
+                          {search || filterKategori !== "Semua"
+                            ? "Tidak ada hasil yang cocok"
+                            : "Belum ada data bahan baku"}
                         </p>
                         <p className="text-xs mt-0.5">
-                          {search || filterKategori !== "Semua" ? "Coba ubah filter pencarian" : "Klik \"Tambah Bahan\" untuk menambahkan bahan baku pertama"}
+                          {search || filterKategori !== "Semua"
+                            ? "Coba ubah filter pencarian"
+                            : 'Klik "Tambah Bahan" untuk menambahkan bahan baku pertama'}
                         </p>
                       </div>
                     </div>
@@ -514,29 +563,70 @@ export default function BahanBakuPage() {
                 </tr>
               ) : (
                 filtered.map((b, idx) => (
-                  <tr key={b.id} className={cn("border-b border-border transition-colors hover:bg-muted/30", idx % 2 !== 0 && "bg-muted/10")}>
-                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{b.id}</td>
-                    <td className="px-4 py-3 font-medium text-foreground">{b.nama}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">{b.kategori}</span>
+                  <tr
+                    key={b.id}
+                    className={cn(
+                      "border-b border-border transition-colors hover:bg-muted/30",
+                      idx % 2 !== 0 && "bg-muted/10"
+                    )}
+                  >
+                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
+                      {b.id}
                     </td>
-                    <td className={cn("px-4 py-3 text-right font-semibold", b.stok <= b.stokMin ? "text-red-500" : "text-foreground")}>
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      {b.nama}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        {b.kategori}
+                      </span>
+                    </td>
+                    <td
+                      className={cn(
+                        "px-4 py-3 text-right font-semibold",
+                        b.stok <= b.stokMin ? "text-red-500" : "text-foreground"
+                      )}
+                    >
                       {b.stok.toLocaleString("id-ID")}
                     </td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{b.stokMin.toLocaleString("id-ID")}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{b.satuan}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">
+                      {b.stokMin.toLocaleString("id-ID")}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {b.satuan}
+                    </td>
                     <td className="px-4 py-3 text-right text-muted-foreground">
                       Rp {b.hargaSatuan.toLocaleString("id-ID")}
                     </td>
                     <td className="px-4 py-3 text-right font-medium">
                       Rp {(b.stok * b.hargaSatuan).toLocaleString("id-ID")}
                     </td>
-                    <td className="px-4 py-3"><StokBadge stok={b.stok} stokMin={b.stokMin} /></td>
+                    <td className="px-4 py-3">
+                      <StokBadge stok={b.stok} stokMin={b.stokMin} />
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setModalView(b)} title="Lihat" className="rounded-lg p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-muted-foreground hover:text-blue-500 transition-colors"><Eye className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => setModalEdit(b)} title="Edit" className="rounded-lg p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"><Edit className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => setModalDelete(b)} title="Hapus" className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                        <button
+                          onClick={() => setModalView(b)}
+                          title="Lihat"
+                          className="rounded-lg p-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-muted-foreground hover:text-blue-500 transition-colors"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setModalEdit(b)}
+                          title="Edit"
+                          className="rounded-lg p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setModalDelete(b)}
+                          title="Hapus"
+                          className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -550,19 +640,53 @@ export default function BahanBakuPage() {
             Menampilkan {filtered.length} dari {data.length} bahan baku
           </p>
           <div className="flex gap-1">
-            <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent disabled:opacity-50">Sebelumnya</button>
-            <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent">Selanjutnya</button>
+            <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent disabled:opacity-50">
+              Sebelumnya
+            </button>
+            <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent">
+              Selanjutnya
+            </button>
           </div>
         </div>
       </div>
 
-      <TambahBahanModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleAdd} mode="tambah" />
-      <TambahBahanModal open={!!modalEdit} onClose={() => setModalEdit(null)} onSubmit={handleEdit}
-        initial={modalEdit ? { nama: modalEdit.nama, kategori: modalEdit.kategori, satuan: modalEdit.satuan, stok: String(modalEdit.stok), stokMin: String(modalEdit.stokMin), hargaSatuan: String(modalEdit.hargaSatuan), keterangan: modalEdit.keterangan } : undefined}
-        mode="edit" key={modalEdit?.id ?? "edit"} />
-      <ViewBahanModal open={!!modalView} onClose={() => setModalView(null)} b={modalView} />
-      <DeleteBahanModal open={!!modalDelete} onClose={() => setModalDelete(null)}
-        onConfirm={handleDelete} nama={modalDelete?.nama ?? ""} />
+      <TambahBahanModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleAdd}
+        mode="tambah"
+      />
+      <TambahBahanModal
+        open={!!modalEdit}
+        onClose={() => setModalEdit(null)}
+        onSubmit={handleEdit}
+        initial={
+          modalEdit
+            ? {
+                nama: modalEdit.nama,
+                kategori: modalEdit.kategori,
+                satuan: modalEdit.satuan,
+                stok: String(modalEdit.stok),
+                stokMin: String(modalEdit.stokMin),
+                hargaSatuan: String(modalEdit.hargaSatuan),
+                keterangan: modalEdit.keterangan,
+              }
+            : undefined
+        }
+        mode="edit"
+        key={modalEdit?.id ?? "edit"}
+      />
+      <ViewBahanModal
+        open={!!modalView}
+        onClose={() => setModalView(null)}
+        b={modalView}
+      />
+      <DeleteBahanModal
+        open={!!modalDelete}
+        onClose={() => setModalDelete(null)}
+        onConfirm={handleDelete}
+        nama={modalDelete?.nama ?? ""}
+      />
     </div>
   );
 }
