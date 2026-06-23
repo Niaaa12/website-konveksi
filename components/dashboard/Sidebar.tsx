@@ -6,6 +6,7 @@ import {
   BookOpen,
   Boxes,
   ChevronRight,
+  ClipboardCheck,
   ClipboardList,
   Factory,
   LayoutDashboard,
@@ -39,6 +40,7 @@ const menuItems = [
     ],
   },
   { label: "Unit Produksi",    href: "/unitproduksi",    icon: Factory },
+  { label: "Progress Saya", href: "/progress", icon: ClipboardCheck },
   {
     label: "Persediaan",
     icon: Package,

@@ -127,11 +127,21 @@ export async function getWorkOrder(woId: string): Promise<WorkOrder | null> {
 export async function createWorkOrder(
   data: Omit<WorkOrder, "id" | "createdAt" | "updatedAt">
 ): Promise<string> {
+  // 1. Buat dokumen WO
   const ref = await addDoc(collection(db, "workOrders"), {
     ...data,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  // 2. Otomatis inisialisasi 5 tahap produksi
+  //    picId = operatorId WO (PIC yang bertanggung jawab)
+  await inisialisasiTahapProduksi(
+    ref.id,
+    data.jumlahTarget,
+    data.operatorId ?? ""
+  );
+
   return ref.id;
 }
 
@@ -413,6 +423,14 @@ export async function getProductBom(productId: string) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// UNIT PRODUKSI
+// Field `kategori` dipakai untuk pengelompokan (jahit/obras/potong/finishing/qc).
+// Field `jenis` tetap ada sebagai deskripsi detail mesin ("Mesin Jahit Juki").
+// Field `efisiensi` TIDAK disimpan statis — dihitung otomatis dari histori WO
+// via hitungEfisiensiUnit() setiap kali data di-load.
+// ─────────────────────────────────────────────────────────────────────────────
+
 export type UnitKategori =
   | "jahit"
   | "obras"
@@ -425,10 +443,10 @@ export interface ProductionUnit {
   id?: string;
   kode: string;
   nama: string;
-  jenis: string; // deskripsi detail mesin, mis. "Mesin Jahit High Speed Juki"
+  jenis: string; // deskripsi detail, mis. "Mesin Jahit High Speed Juki"
   kategori: UnitKategori; // kategori standar untuk pengelompokan & filter
   status: "aktif" | "idle" | "maintenance";
-  efisiensi: number; // dihitung otomatis, lihat hitungEfisiensiUnit()
+  efisiensi: number; // dihitung otomatis via hitungEfisiensiUnit()
   jadwalMaintenance: string;
   catatan: string;
   picId?: string;
@@ -454,11 +472,13 @@ const KATEGORI_LABEL: Record<UnitKategori, string> = {
 };
 
 /**
- * Hitung efisiensi satu unit produksi berdasarkan histori Work Order-nya.
+ * Hitung efisiensi satu unit produksi dari histori Work Order-nya.
  * Rumus: Tingkat Output × Tingkat Kualitas × 100
- *   - Tingkat Output  = total jumlahSelesai ÷ total jumlahTarget (semua WO unit ini)
- *   - Tingkat Kualitas = (jumlahSelesai − jumlahCacat) ÷ jumlahSelesai
- * Unit berstatus "maintenance" atau belum pernah punya WO selesai/berjalan → efisiensi 0.
+ *   Tingkat Output   = Σ jumlahSelesai ÷ Σ jumlahTarget
+ *   Tingkat Kualitas = (Σ jumlahSelesai − Σ jumlahCacat) ÷ Σ jumlahSelesai
+ *
+ * Unit berstatus "maintenance" atau belum punya WO aktif → efisiensi 0.
+ * Ini jauh lebih akurat daripada menyimpan angka statis di Firestore.
  */
 export function hitungEfisiensiUnit(
   unitId: string,
@@ -490,8 +510,8 @@ export function hitungEfisiensiUnit(
 }
 
 /**
- * Ambil semua unit produksi dengan efisiensi yang sudah dihitung ulang
- * (bukan dari field statis di Firestore), berdasarkan WO terbaru.
+ * Ambil semua unit produksi, efisiensinya dihitung ulang dari WO terbaru.
+ * Gunakan fungsi ini untuk halaman Lini Produksi (tampilan lengkap per unit).
  */
 export async function getProductionUnitsWithEfisiensi(): Promise<
   ProductionUnit[]
@@ -509,7 +529,24 @@ export async function getProductionUnitsWithEfisiensi(): Promise<
   });
 }
 
-/** Ringkasan unit produksi dikelompokkan per kategori — untuk kartu di dashboard */
+/**
+ * Ambil semua unit produksi (mentah, tanpa hitung ulang efisiensi).
+ * Gunakan di tempat yang hanya butuh daftar unit tanpa kalkulasi berat,
+ * misalnya dropdown pilih unit di form Work Order.
+ */
+export async function getProductionUnits(): Promise<ProductionUnit[]> {
+  const snap = await getDocs(
+    query(collection(db, "productionUnits"), orderBy("nama"))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductionUnit));
+}
+
+/**
+ * Ringkasan unit dikelompokkan per kategori — untuk kartu di Dashboard.
+ * Menampilkan berapa unit aktif/idle/maintenance per jenis
+ * (Jahit 38/40, Obras 5/6, dst) tanpa perlu fetch 53 dokumen satu per satu
+ * di halaman Dashboard.
+ */
 export async function getProductionUnitsSummary(): Promise<
   UnitKategoriSummary[]
 > {
@@ -543,15 +580,7 @@ export async function getProductionUnitsSummary(): Promise<
             : 0,
       };
     })
-    .filter((s) => s.total > 0); // sembunyikan kategori yang belum ada unitnya
-}
-
-/** Ambil semua unit produksi (mentah, tanpa hitung ulang efisiensi) */
-export async function getProductionUnits(): Promise<ProductionUnit[]> {
-  const snap = await getDocs(
-    query(collection(db, "productionUnits"), orderBy("nama"))
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductionUnit));
+    .filter((s) => s.total > 0); // sembunyikan kategori yang belum punya unit
 }
 
 /** Buat unit produksi baru */
@@ -588,27 +617,6 @@ export async function getProductVariants(productId: string) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// USERS / OPERATOR
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface AppUser {
-  id?: string;
-  email: string;
-  nama: string;
-  role: "admin" | "manajer" | "produksi" | "gudang";
-  jabatan: string;
-  aktif: boolean;
-}
-
-/** Ambil daftar pengguna yang bisa ditugaskan sebagai operator/PIC work order */
-export async function getOperators(): Promise<AppUser[]> {
-  const snap = await getDocs(collection(db, "users"));
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() } as AppUser))
-    .filter((u) => u.aktif && (u.role === "produksi" || u.role === "manajer"));
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD STATS (agregasi sederhana)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -636,4 +644,303 @@ export async function getDashboardStats() {
     totalProgress: wos.reduce((s, w) => s + w.jumlahSelesai, 0),
     totalTarget: wos.reduce((s, w) => s + w.jumlahTarget, 0),
   };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// TAHAP PRODUKSI
+// Subcollection di bawah tiap workOrder:
+//   workOrders/{woId}/tahapProduksi/{tahapId}
+// Setiap WO punya tepat 5 dokumen (satu per tahap).
+// PIC yang update — bukan operator mesin.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type TahapId = "potong" | "jahit" | "obras" | "finishing" | "packing";
+
+export type TahapStatus =
+  | "belum_mulai" // WO baru dibuat, tahap belum dimulai
+  | "berlangsung" // sedang dikerjakan
+  | "selesai" // tahap ini selesai, lanjut ke berikutnya
+  | "ada_masalah"; // ada kendala — perlu perhatian manajer
+
+export interface TahapProduksi {
+  id?: string; // = TahapId ("potong", "jahit", dst)
+  tahap: TahapId;
+  urutanTahap: number; // 1–5, untuk sorting
+  status: TahapStatus;
+  jumlahMasuk: number; // berapa pcs masuk ke tahap ini
+  jumlahSelesai: number; // berapa pcs selesai dari tahap ini
+  jumlahCacat: number; // reject di tahap ini
+  catatanKendala: string; // opsional, diisi kalau ada masalah
+  picId: string; // UID PIC yang update
+  updatedAt?: any;
+  mulaiAt?: any; // kapan tahap ini pertama kali mulai
+  selesaiAt?: any; // kapan tahap ini diselesaikan
+}
+
+// Urutan dan label tahap — single source of truth
+export const TAHAP_CONFIG: Record<
+  TahapId,
+  { label: string; urutan: number; labelPendek: string }
+> = {
+  potong: { label: "Pemotongan Kain", labelPendek: "Potong", urutan: 1 },
+  jahit: { label: "Penjahitan", labelPendek: "Jahit", urutan: 2 },
+  obras: { label: "Obras", labelPendek: "Obras", urutan: 3 },
+  finishing: { label: "Finishing & QC", labelPendek: "Finishing", urutan: 4 },
+  packing: { label: "Packing", labelPendek: "Packing", urutan: 5 },
+};
+
+export const URUTAN_TAHAP: TahapId[] = [
+  "potong",
+  "jahit",
+  "obras",
+  "finishing",
+  "packing",
+];
+
+/** Ambil semua tahap produksi sebuah WO, diurutkan sesuai alur produksi */
+export async function getTahapProduksi(woId: string): Promise<TahapProduksi[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, `workOrders/${woId}/tahapProduksi`),
+      orderBy("urutanTahap")
+    )
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as TahapProduksi));
+}
+
+/**
+ * Inisialisasi 5 dokumen tahap untuk WO baru.
+ * Dipanggil otomatis saat WO dibuat, bukan manual.
+ * jumlahMasuk tahap pertama (potong) = jumlahTarget WO.
+ */
+export async function inisialisasiTahapProduksi(
+  woId: string,
+  jumlahTarget: number,
+  picId: string
+): Promise<void> {
+  const batch = writeBatch(db);
+  URUTAN_TAHAP.forEach((tahapId, idx) => {
+    const ref = doc(db, `workOrders/${woId}/tahapProduksi/${tahapId}`);
+    batch.set(ref, {
+      tahap: tahapId,
+      urutanTahap: idx + 1,
+      status: idx === 0 ? "berlangsung" : "belum_mulai",
+      jumlahMasuk: idx === 0 ? jumlahTarget : 0,
+      jumlahSelesai: 0,
+      jumlahCacat: 0,
+      catatanKendala: "",
+      picId,
+      updatedAt: serverTimestamp(),
+      mulaiAt: idx === 0 ? serverTimestamp() : null,
+      selesaiAt: null,
+    } satisfies Omit<TahapProduksi, "id">);
+  });
+  await batch.commit();
+}
+
+/**
+ * PIC update progress satu tahap.
+ * Kalau tahap diselesaikan (status = "selesai"), otomatis:
+ *   - set selesaiAt
+ *   - buka (status = "berlangsung") tahap berikutnya
+ *   - set jumlahMasuk tahap berikutnya = jumlahSelesai tahap ini
+ */
+export async function updateTahapProduksi(
+  woId: string,
+  tahapId: TahapId,
+  update: {
+    jumlahSelesai: number;
+    jumlahCacat: number;
+    catatanKendala: string;
+    status: TahapStatus;
+    picId: string;
+  }
+): Promise<void> {
+  const tahapRef = doc(db, `workOrders/${woId}/tahapProduksi/${tahapId}`);
+  const selesai = update.status === "selesai";
+
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(tahapRef);
+    if (!snap.exists()) throw new Error(`Tahap ${tahapId} tidak ditemukan.`);
+
+    // Update tahap ini
+    tx.update(tahapRef, {
+      jumlahSelesai: update.jumlahSelesai,
+      jumlahCacat: update.jumlahCacat,
+      catatanKendala: update.catatanKendala,
+      status: update.status,
+      picId: update.picId,
+      updatedAt: serverTimestamp(),
+      ...(selesai ? { selesaiAt: serverTimestamp() } : {}),
+    });
+
+    // Kalau selesai, buka tahap berikutnya
+    if (selesai) {
+      const urutanSekarang = TAHAP_CONFIG[tahapId].urutan;
+      const tahapBerikutnyaId = URUTAN_TAHAP[urutanSekarang]; // urutan 1-based, index 0-based
+      if (tahapBerikutnyaId) {
+        const nextRef = doc(
+          db,
+          `workOrders/${woId}/tahapProduksi/${tahapBerikutnyaId}`
+        );
+        tx.update(nextRef, {
+          status: "berlangsung",
+          jumlahMasuk: update.jumlahSelesai,
+          mulaiAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      // Kalau tahap terakhir (packing) selesai, update status WO jadi selesai
+      if (tahapId === "packing") {
+        const woRef = doc(db, "workOrders", woId);
+        tx.update(woRef, {
+          status: "selesai",
+          jumlahSelesai: update.jumlahSelesai,
+          jumlahCacat: update.jumlahCacat,
+          tanggalSelesai: new Date().toISOString().slice(0, 10),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    }
+  });
+}
+
+/**
+ * Ambil WO yang ditugaskan ke PIC tertentu (berdasarkan operatorId),
+ * beserta semua tahap produksinya sekaligus.
+ * Untuk halaman Progress PIC.
+ */
+export async function getWOdanTahapByPIC(
+  picId: string
+): Promise<Array<WorkOrder & { tahap: TahapProduksi[] }>> {
+  const snap = await getDocs(
+    query(
+      collection(db, "workOrders"),
+      where("operatorId", "==", picId),
+      where("status", "in", ["berjalan", "dijadwalkan", "tertunda"]),
+      orderBy("tanggalTarget")
+    )
+  );
+
+  const wos = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WorkOrder));
+
+  // Ambil tahap semua WO secara paralel
+  const tahapList = await Promise.all(
+    wos.map((wo) => getTahapProduksi(wo.id!).catch(() => []))
+  );
+
+  return wos.map((wo, i) => ({ ...wo, tahap: tahapList[i] }));
+}
+
+/** Listener real-time untuk tahap produksi satu WO (untuk manajer di desktop) */
+export function listenTahapProduksi(
+  woId: string,
+  callback: (tahap: TahapProduksi[]) => void
+): Unsubscribe {
+  return onSnapshot(
+    query(
+      collection(db, `workOrders/${woId}/tahapProduksi`),
+      orderBy("urutanTahap")
+    ),
+    (snap) =>
+      callback(
+        snap.docs.map((d) => ({ id: d.id, ...d.data() } as TahapProduksi))
+      )
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RINGKASAN TAHAP PRODUKSI — untuk Dashboard
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface TahapSummary {
+  tahapId: TahapId;
+  label: string;
+  labelPendek: string;
+  jumlahWO: number; // berapa WO sedang di tahap ini
+  jumlahWOMasalah: number; // berapa WO ada masalah di tahap ini
+  totalMasuk: number; // total pcs masuk di semua WO untuk tahap ini
+  totalSelesai: number; // total pcs selesai
+  totalCacat: number; // total pcs cacat
+}
+
+/**
+ * Ambil ringkasan per tahap produksi dari semua WO yang sedang aktif.
+ * Dipakai di Dashboard sebagai gambaran bottleneck produksi hari ini.
+ */
+export async function getTahapProduksiSummary(): Promise<TahapSummary[]> {
+  // Ambil semua WO aktif
+  const woSnap = await getDocs(
+    query(
+      collection(db, "workOrders"),
+      where("status", "in", ["berjalan", "dijadwalkan", "tertunda"])
+    )
+  );
+  const woIds = woSnap.docs.map((d) => d.id);
+  if (woIds.length === 0)
+    return URUTAN_TAHAP.map((id) => ({
+      tahapId: id,
+      ...TAHAP_CONFIG[id],
+      jumlahWO: 0,
+      jumlahWOMasalah: 0,
+      totalMasuk: 0,
+      totalSelesai: 0,
+      totalCacat: 0,
+    }));
+
+  // Ambil tahap semua WO aktif secara paralel
+  const semuaTahap = await Promise.all(
+    woIds.map((id) => getTahapProduksi(id).catch(() => [] as TahapProduksi[]))
+  );
+
+  // Agregasi per tahapId
+  const map: Record<TahapId, TahapSummary> = {} as any;
+  URUTAN_TAHAP.forEach((id) => {
+    map[id] = {
+      tahapId: id,
+      label: TAHAP_CONFIG[id].label,
+      labelPendek: TAHAP_CONFIG[id].labelPendek,
+      jumlahWO: 0,
+      jumlahWOMasalah: 0,
+      totalMasuk: 0,
+      totalSelesai: 0,
+      totalCacat: 0,
+    };
+  });
+
+  semuaTahap.forEach((tahapPerWO) => {
+    tahapPerWO.forEach((t) => {
+      if (!map[t.tahap]) return;
+      // Hitung WO yang sedang di tahap ini (berlangsung atau ada masalah)
+      if (t.status === "berlangsung" || t.status === "ada_masalah") {
+        map[t.tahap].jumlahWO++;
+        if (t.status === "ada_masalah") map[t.tahap].jumlahWOMasalah++;
+      }
+      map[t.tahap].totalMasuk += t.jumlahMasuk;
+      map[t.tahap].totalSelesai += t.jumlahSelesai;
+      map[t.tahap].totalCacat += t.jumlahCacat;
+    });
+  });
+
+  return URUTAN_TAHAP.map((id) => map[id]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface AppUser {
+  id?: string;
+  email: string;
+  nama: string;
+  role: "admin" | "manajer" | "produksi" | "gudang";
+  jabatan: string;
+  aktif: boolean;
+}
+
+export async function getOperators(): Promise<AppUser[]> {
+  const snap = await getDocs(collection(db, "users"));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as AppUser))
+    .filter((u) => u.aktif && (u.role === "produksi" || u.role === "manajer"));
 }

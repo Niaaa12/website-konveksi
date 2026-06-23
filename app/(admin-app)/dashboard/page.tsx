@@ -2,6 +2,7 @@
 
 import { StatCard } from "@/components/dashboard/StatCard";
 import { DashboardUnitProduksiSummary } from "@/components/dashboard/DashboardUnitProduksiSummary";
+import { DashboardTahapProduksiSummary } from "@/components/tahapproduksi/DashboardTahapProduksiSummary";
 import {
   AlertTriangle,
   ArrowRight,
@@ -526,6 +527,7 @@ export default function DashboardPage() {
 
       {/* Status Mesin */}
       <DashboardUnitProduksiSummary />
+      <DashboardTahapProduksiSummary />
     </div>
   );
 }
