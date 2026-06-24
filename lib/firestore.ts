@@ -395,32 +395,204 @@ export async function getStockTransactions(
 // PRODUCTS
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PRODUK — tipe & CRUD lengkap termasuk varian warna dan BOM
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface Product {
   id?: string;
   kode: string;
   nama: string;
   deskripsi: string;
   kategoriId: string;
+  bahanUtama: string; // deskripsi singkat bahan, mis. "Voal Premium"
+  ukuran: string; // mis. "115x115 cm"
+  hargaPokok: number;
   hargaJual: number;
   aktif: boolean;
 }
 
-/** Ambil semua produk aktif */
-export async function getProducts(kategoriId?: string): Promise<Product[]> {
-  const constraints: QueryConstraint[] = [
-    where("aktif", "==", true),
-    orderBy("nama"),
-  ];
-  if (kategoriId) constraints.unshift(where("kategoriId", "==", kategoriId));
+export interface ProductCategory {
+  id?: string;
+  nama: string;
+  deskripsi?: string;
+}
 
+/**
+ * Varian warna produk.
+ * stokJadi: stok produk jadi warna ini (hasil produksi, bukan bahan baku).
+ * stokMin:  batas minimum stok — kalau di bawah ini, sistem tandai kritis
+ *           dan tim produksi bisa buat WO baru untuk warna ini.
+ */
+export interface ProductVariant {
+  id?: string;
+  namaWarna: string;
+  kodeHex: string; // kode warna HEX, mis. "#E8C4C4"
+  stokJadi: number;
+  stokMin: number; // default 20 jika tidak diisi
+}
+
+/** Status stok varian — dihitung sisi aplikasi, tidak disimpan di Firestore */
+export type VariantStokStatus = "aman" | "rendah" | "habis";
+
+export function hitungVariantStokStatus(
+  stok: number,
+  stokMin: number
+): VariantStokStatus {
+  if (stok <= 0) return "habis";
+  if (stok < stokMin) return "rendah";
+  return "aman";
+}
+
+/**
+ * BOM (Bill of Materials) — resep bahan baku untuk satu produk.
+ * Satu baris = satu jenis bahan, jumlah yang dibutuhkan per unit produk.
+ * Dipakai untuk estimasi kebutuhan bahan saat buat WO baru.
+ */
+export interface BomItem {
+  id?: string;
+  materialId: string; // referensi ke collection materials
+  jumlahPerUnit: number; // kebutuhan bahan per 1 pcs produk
+  satuan: string; // "meter", "cone", "pcs", dst
+  catatan?: string;
+}
+
+// ── Produk CRUD ──────────────────────────────────────────────────────────────
+
+/** Ambil semua produk, bisa filter kategori dan status aktif */
+export async function getProducts(
+  kategoriId?: string,
+  aktifSaja = false
+): Promise<Product[]> {
+  const constraints: QueryConstraint[] = [orderBy("nama")];
+  if (aktifSaja) constraints.unshift(where("aktif", "==", true));
+  if (kategoriId) constraints.unshift(where("kategoriId", "==", kategoriId));
   const snap = await getDocs(query(collection(db, "products"), ...constraints));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Product));
 }
 
+export async function createProduct(
+  data: Omit<Product, "id">
+): Promise<string> {
+  const ref = await addDoc(collection(db, "products"), {
+    ...data,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateProduct(
+  id: string,
+  data: Partial<Product>
+): Promise<void> {
+  await updateDoc(doc(db, "products", id), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  await deleteDoc(doc(db, "products", id));
+}
+
+/** Ambil semua kategori produk */
+export async function getProductCategories(): Promise<ProductCategory[]> {
+  const snap = await getDocs(collection(db, "productCategories"));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductCategory));
+}
+
+// ── Varian Warna CRUD ─────────────────────────────────────────────────────────
+
+/** Ambil semua varian warna sebuah produk, diurutkan nama */
+export async function getProductVariants(
+  productId: string
+): Promise<ProductVariant[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, `products/${productId}/variants`),
+      orderBy("namaWarna")
+    )
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductVariant));
+}
+
+/**
+ * Ambil varian warna yang stoknya kritis atau habis.
+ * Dipakai untuk notifikasi dan tombol "Buat WO" cepat.
+ */
+export async function getVarianKritis(
+  productId: string
+): Promise<ProductVariant[]> {
+  const variants = await getProductVariants(productId);
+  return variants.filter(
+    (v) => hitungVariantStokStatus(v.stokJadi, v.stokMin ?? 20) !== "aman"
+  );
+}
+
+export async function createProductVariant(
+  productId: string,
+  data: Omit<ProductVariant, "id">
+): Promise<string> {
+  const ref = await addDoc(collection(db, `products/${productId}/variants`), {
+    ...data,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateProductVariant(
+  productId: string,
+  variantId: string,
+  data: Partial<ProductVariant>
+): Promise<void> {
+  await updateDoc(doc(db, `products/${productId}/variants/${variantId}`), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteProductVariant(
+  productId: string,
+  variantId: string
+): Promise<void> {
+  await deleteDoc(doc(db, `products/${productId}/variants/${variantId}`));
+}
+
+// ── BOM CRUD ─────────────────────────────────────────────────────────────────
+
 /** Ambil BOM (resep bahan) untuk satu produk */
-export async function getProductBom(productId: string) {
+export async function getProductBom(productId: string): Promise<BomItem[]> {
   const snap = await getDocs(collection(db, `products/${productId}/bom`));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BomItem));
+}
+
+export async function createBomItem(
+  productId: string,
+  data: Omit<BomItem, "id">
+): Promise<string> {
+  const ref = await addDoc(collection(db, `products/${productId}/bom`), {
+    ...data,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateBomItem(
+  productId: string,
+  bomId: string,
+  data: Partial<BomItem>
+): Promise<void> {
+  await updateDoc(doc(db, `products/${productId}/bom/${bomId}`), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteBomItem(
+  productId: string,
+  bomId: string
+): Promise<void> {
+  await deleteDoc(doc(db, `products/${productId}/bom/${bomId}`));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -608,12 +780,6 @@ export async function updateProductionUnit(
 /** Hapus unit produksi */
 export async function deleteProductionUnit(id: string): Promise<void> {
   await deleteDoc(doc(db, "productionUnits", id));
-}
-
-/** Ambil varian warna sebuah produk */
-export async function getProductVariants(productId: string) {
-  const snap = await getDocs(collection(db, `products/${productId}/variants`));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -42,7 +42,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   },
   "/katalogproduk": {
     title: "Katalog Produk",
-    subtitle: "Daftar produk & desain yang tersedia",
+    subtitle: "Kelola produk, varian warna, dan resep bahan baku",
   },
   "/pengaturan": {
     title: "Pengaturan",
