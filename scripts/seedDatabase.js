@@ -49,23 +49,23 @@ const USERS = [
   {
     email: "admin@sodaigroup.id",
     password: "Admin@2025!",
-    nama: "Ratna Cahyani",
+    nama: "Ifnu Rusdi",
     role: "admin",
     jabatan: "Admin",
   },
   {
     email: "manajer@sodaigroup.id",
     password: "Manajer@2025!",
-    nama: "Dewi Kusuma",
+    nama: "Ridho Irwansyah",
     role: "manajer",
-    jabatan: "Manajer Produksi",
+    jabatan: "Manajer Konveksi",
   },
   {
     email: "produksi@sodaigroup.id",
     password: "Produksi@2025!",
-    nama: "Siti Aminah",
+    nama: "Afdul Mufti",
     role: "produksi",
-    jabatan: "Kepala Tim Jahit",
+    jabatan: "Kepala Tim Produksi",
   },
   {
     email: "gudang@sodaigroup.id",

@@ -78,13 +78,13 @@ const ROLE_CONFIG: Record<
     icon: ShieldCheck,
   },
   manajer: {
-    label: "Manajer Produksi",
+    label: "Manajer Konveksi",
     color: "text-violet-700",
     bg: "bg-violet-100 dark:bg-violet-900/30 dark:text-violet-400",
     icon: Shield,
   },
   produksi: {
-    label: "Tim Produksi",
+    label: "Kepala Tim Produksi",
     color: "text-blue-700",
     bg: "bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400",
     icon: Package,
