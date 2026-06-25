@@ -7,6 +7,9 @@ import {
   updateProduct,
   deleteProduct,
   getProductCategories,
+  createProductCategory,
+  updateProductCategory,
+  deleteProductCategory,
   getProductVariants,
   createProductVariant,
   updateProductVariant,
@@ -1502,6 +1505,286 @@ function ProductCard({
 // HALAMAN UTAMA KATALOG PRODUK
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MODAL KELOLA KATEGORI
+// ─────────────────────────────────────────────────────────────────────────────
+
+function KategoriModal({
+  categories,
+  onClose,
+  onRefresh,
+}: {
+  categories: ProductCategory[];
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const emptyForm = { nama: "", deskripsi: "" };
+  const [form, setForm] = useState(emptyForm);
+  const [editTarget, setEditTarget] = useState<ProductCategory | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProductCategory | null>(
+    null
+  );
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  function bukaEdit(cat: ProductCategory) {
+    setEditTarget(cat);
+    setForm({ nama: cat.nama, deskripsi: cat.deskripsi ?? "" });
+    setError("");
+  }
+
+  function resetForm() {
+    setEditTarget(null);
+    setForm(emptyForm);
+    setError("");
+  }
+
+  async function handleSave() {
+    if (!form.nama.trim()) {
+      setError("Nama kategori wajib diisi.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      if (editTarget?.id) {
+        await updateProductCategory(editTarget.id, {
+          nama: form.nama.trim(),
+          deskripsi: form.deskripsi.trim(),
+        });
+      } else {
+        await createProductCategory({
+          nama: form.nama.trim(),
+          deskripsi: form.deskripsi.trim(),
+        });
+      }
+      await onRefresh();
+      resetForm();
+    } catch (e) {
+      setError("Gagal menyimpan. Coba lagi.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget?.id) return;
+    setDeleting(true);
+    try {
+      await deleteProductCategory(deleteTarget.id);
+      await onRefresh();
+      setDeleteTarget(null);
+    } catch (e) {
+      setError(
+        "Gagal menghapus. Pastikan tidak ada produk dengan kategori ini."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-16 pb-8 overflow-y-auto">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#003247]/10">
+              <Tag className="h-4 w-4 text-[#003247]" />
+            </span>
+            <h2 className="text-sm font-semibold">Kelola Kategori</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 hover:bg-muted/60 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Form Tambah / Edit */}
+          <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+            <p className="text-xs font-semibold text-foreground">
+              {editTarget ? `Edit: ${editTarget.nama}` : "Tambah Kategori Baru"}
+            </p>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Nama Kategori <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.nama}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, nama: e.target.value }))
+                }
+                placeholder="cth. Hijab Voal, Pashmina, Turban..."
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Deskripsi{" "}
+                <span className="text-muted-foreground">(opsional)</span>
+              </label>
+              <input
+                type="text"
+                value={form.deskripsi}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, deskripsi: e.target.value }))
+                }
+                placeholder="Keterangan singkat kategori..."
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30"
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end pt-1">
+              {editTarget && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted/60 transition-colors"
+                >
+                  Batal
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2 text-xs font-medium text-white hover:bg-[#004a6e] disabled:opacity-60 transition-colors"
+              >
+                {saving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : editTarget ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
+                {saving
+                  ? "Menyimpan..."
+                  : editTarget
+                  ? "Simpan Perubahan"
+                  : "Tambah Kategori"}
+              </button>
+            </div>
+          </div>
+
+          {/* Daftar Kategori */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Kategori Tersedia ({categories.length})
+            </p>
+            {categories.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border py-8 text-center text-xs text-muted-foreground">
+                Belum ada kategori. Tambahkan di atas.
+              </div>
+            ) : (
+              <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+                {categories.map((cat) => (
+                  <div
+                    key={cat.id}
+                    className={cn(
+                      "flex items-center justify-between px-4 py-3 transition-colors",
+                      editTarget?.id === cat.id
+                        ? "bg-[#003247]/5"
+                        : "hover:bg-muted/30"
+                    )}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{cat.nama}</p>
+                      {cat.deskripsi && (
+                        <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                          {cat.deskripsi}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 ml-3 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => bukaEdit(cat)}
+                        className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(cat)}
+                        className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500 transition-colors"
+                        title="Hapus"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Konfirmasi Hapus */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-100">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Hapus Kategori?</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  "{deleteTarget.nama}" akan dihapus permanen.
+                </p>
+              </div>
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setError("");
+                }}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted/60 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
+              >
+                {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {deleting ? "Menghapus..." : "Ya, Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function KatalogProdukPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -1521,6 +1804,7 @@ export default function KatalogProdukPage() {
   const [editProduct, setEditProduct] = useState<Product | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showKategoriModal, setShowKategoriModal] = useState(false);
 
   // Stable callback — tidak berubah referensi antar render, mencegah infinite loop
   // di VarianWarnaPanelInline yang pakai onVariantChange sebagai useCallback dep
@@ -1563,6 +1847,14 @@ export default function KatalogProdukPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Refresh hanya kategori — dipakai oleh KategoriModal tanpa reload seluruh halaman
+  async function loadCategories() {
+    const cats = await getProductCategories().catch(
+      () => [] as ProductCategory[]
+    );
+    setCategories(cats);
   }
 
   useEffect(() => {
@@ -1761,11 +2053,25 @@ export default function KatalogProdukPage() {
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <button
+            type="button"
+            onClick={() => setShowKategoriModal(true)}
+            className="self-start sm:self-auto flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-muted/60 transition-colors"
+          >
+            <Tag className="h-4 w-4" /> Kelola Kategori
+          </button>
+          <button
             onClick={() => setEditProduct("new")}
             className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
           >
             <Plus className="h-4 w-4" /> Tambah Produk
           </button>
+          {showKategoriModal && (
+            <KategoriModal
+              categories={categories}
+              onClose={() => setShowKategoriModal(false)}
+              onRefresh={loadCategories}
+            />
+          )}
         </div>
       </div>
 

@@ -37,10 +37,9 @@ const menuItems = [
         icon: ClipboardList,
       },
       { label: "Jadwal Produksi", href: "/produksi/jadwal", icon: Factory },
+      { label: "Unit Produksi", href: "/produksi/unitproduksi", icon: Factory },
     ],
   },
-  { label: "Unit Produksi",    href: "/unitproduksi",    icon: Factory },
-  { label: "Progress Saya", href: "/progress", icon: ClipboardCheck },
   {
     label: "Persediaan",
     icon: Package,
@@ -50,6 +49,7 @@ const menuItems = [
       { label: "Pengeluaran", href: "/persediaan/pengeluaran", icon: Package },
     ],
   },
+  { label: "Progress Saya", href: "/progress", icon: ClipboardCheck },
   {
     label: "Katalog Produk",
     href: "/katalogproduk",

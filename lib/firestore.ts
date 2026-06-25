@@ -529,6 +529,32 @@ export async function getProductCategories(): Promise<ProductCategory[]> {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProductCategory));
 }
 
+// ── Kategori Produk CRUD ──────────────────────────────────────────────────────
+
+export async function createProductCategory(
+  data: Omit<ProductCategory, "id">
+): Promise<string> {
+  const ref = await addDoc(collection(db, "productCategories"), {
+    nama: data.nama,
+    deskripsi: data.deskripsi ?? "",
+  });
+  return ref.id;
+}
+
+export async function updateProductCategory(
+  id: string,
+  data: Omit<ProductCategory, "id">
+): Promise<void> {
+  await updateDoc(doc(db, "productCategories", id), {
+    nama: data.nama,
+    deskripsi: data.deskripsi ?? "",
+  });
+}
+
+export async function deleteProductCategory(id: string): Promise<void> {
+  await deleteDoc(doc(db, "productCategories", id));
+}
+
 // ── Varian Warna CRUD ─────────────────────────────────────────────────────────
 
 /** Ambil semua varian warna sebuah produk, diurutkan nama */

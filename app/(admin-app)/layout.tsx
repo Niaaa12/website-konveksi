@@ -15,7 +15,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: "Jadwal Produksi",
     subtitle: "Kelola work order, pantau progress, dan lihat timeline produksi",
   },
-  "/unitproduksi": {
+  "/produksi/unitproduksi": {
     title: "Status Unit Produksi",
     subtitle:
       "Kelola unit kerja produksi, kapasitas, dan aktivitas operasional",
@@ -31,6 +31,10 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/persediaan/pengeluaran": {
     title: "Pengeluaran Bahan",
     subtitle: "Catat pengeluaran bahan ke lantai produksi",
+  },
+  "/progress": {
+    title: "Progress Produksi",
+    subtitle: "Update Tahap Produksi",
   },
   "/pengguna": {
     title: "Manajemen Pengguna",
