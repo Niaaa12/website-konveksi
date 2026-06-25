@@ -9,11 +9,13 @@ import {
   getProducts,
   getProductionUnits,
   getOperators,
+  getVariantsByProductIds,
   type WorkOrder,
   type WoStatus,
   type Product,
   type ProductionUnit,
   type AppUser,
+  type ProductVariant,
 } from "@/lib/firestore";
 import {
   STATUS_CFG,
@@ -49,11 +51,45 @@ import {
 // Sumber data: lib/firestore.ts (sama persis dengan halaman Jadwal Produksi).
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Komponen badge warna + ukuran varian ─────────────────────────────────────
+function VarianBadge({
+  productId,
+  variantId,
+  variantMap,
+}: {
+  productId: string;
+  variantId: string | null;
+  variantMap: Record<string, ProductVariant[]>;
+}) {
+  if (!variantId)
+    return <span className="text-xs text-muted-foreground">—</span>;
+
+  const variant = (variantMap[productId] ?? []).find((v) => v.id === variantId);
+
+  if (!variant) return <span className="text-xs text-muted-foreground">—</span>;
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span
+        className="h-3 w-3 rounded-full flex-shrink-0 border border-border/50"
+        style={{ backgroundColor: variant.kodeHex }}
+      />
+      <span className="text-xs font-medium">{variant.namaWarna}</span>
+      <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+        {variant.ukuran}
+      </span>
+    </div>
+  );
+}
+
 export default function WorkOrderPage() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [units, setUnits] = useState<ProductionUnit[]>([]);
   const [operators, setOperators] = useState<AppUser[]>([]);
+  const [variantMap, setVariantMap] = useState<
+    Record<string, ProductVariant[]>
+  >({});
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -89,6 +125,10 @@ export default function WorkOrderPage() {
     setProducts(prods);
     setUnits(us);
     setOperators(ops);
+    // Fetch semua variant dari product yang ada di daftar WO
+    const productIds = wos.map((w) => w.productId);
+    const vMap = await getVariantsByProductIds(productIds).catch(() => ({}));
+    setVariantMap(vMap);
     setLoading(false);
   }
 
@@ -317,6 +357,7 @@ export default function WorkOrderPage() {
                 <tr className="text-left text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border">
                   <th className="px-5 py-3">Nomor WO</th>
                   <th className="px-5 py-3">Produk</th>
+                  <th className="px-5 py-3 hidden sm:table-cell">Varian</th>
                   <th className="px-5 py-3 hidden md:table-cell">Unit</th>
                   <th className="px-5 py-3 hidden lg:table-cell">Progress</th>
                   <th className="px-5 py-3 hidden lg:table-cell">Jadwal</th>
@@ -361,6 +402,13 @@ export default function WorkOrderPage() {
                         <p className="text-[10px] text-muted-foreground">
                           {prod?.kode}
                         </p>
+                      </td>
+                      <td className="px-5 py-3.5 hidden sm:table-cell">
+                        <VarianBadge
+                          productId={wo.productId}
+                          variantId={wo.variantId}
+                          variantMap={variantMap}
+                        />
                       </td>
                       <td className="px-5 py-3.5 hidden md:table-cell text-xs text-muted-foreground">
                         {unit?.nama ?? wo.unitId}

@@ -17,11 +17,13 @@ import {
   deleteBomItem,
   getMaterials,
   hitungVariantStokStatus,
+  UKURAN_GROUPS,
   type Product,
   type ProductCategory,
   type ProductVariant,
   type BomItem,
   type Material,
+  type UkuranHijab,
 } from "@/lib/firestore";
 import { cn } from "@/lib/utils";
 import {
@@ -359,19 +361,21 @@ function ProductFormModal({
 interface VariantForm {
   namaWarna: string;
   kodeHex: string;
+  ukuran: UkuranHijab;
   stokJadi: number;
   stokMin: number;
 }
 const EMPTY_VARIANT: VariantForm = {
   namaWarna: "",
   kodeHex: "#E8C4C4",
+  ukuran: "All Size",
   stokJadi: 0,
   stokMin: 20,
 };
 
 // Palet warna hijab yang umum — bisa dipilih cepat
 const PALET_WARNA = [
-  "#2C2C2C",
+  "#000000",
   "#FFFFFF",
   "#F5F5DC",
   "#DCDCDC",
@@ -394,9 +398,11 @@ const PALET_WARNA = [
 function VarianWarnaPanelInline({
   productId,
   jumlahTarget,
+  onVariantChange,
 }: {
   productId: string;
   jumlahTarget: number;
+  onVariantChange?: (variants: ProductVariant[]) => void;
 }) {
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -409,11 +415,14 @@ function VarianWarnaPanelInline({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setVariants(await getProductVariants(productId));
+      const latest = await getProductVariants(productId);
+      setVariants(latest);
+      // Beritahu halaman induk supaya variantMap ikut terupdate
+      onVariantChange?.(latest);
     } finally {
       setLoading(false);
     }
-  }, [productId]);
+  }, [productId, onVariantChange]);
 
   useEffect(() => {
     load();
@@ -426,6 +435,7 @@ function VarianWarnaPanelInline({
       setForm({
         namaWarna: v.namaWarna,
         kodeHex: v.kodeHex,
+        ukuran: v.ukuran ?? "All Size",
         stokJadi: v.stokJadi,
         stokMin: v.stokMin ?? 20,
       });
@@ -510,81 +520,143 @@ function VarianWarnaPanelInline({
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/30 border-b border-border text-[10px] font-medium text-muted-foreground">
-                <th className="px-3 py-2 text-left">Warna</th>
-                <th className="px-3 py-2 text-right">Stok Jadi</th>
-                <th className="px-3 py-2 text-right">Min.</th>
-                <th className="px-3 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {variants.map((v) => (
-                <tr key={v.id} className="hover:bg-muted/10 transition-colors">
-                  <td className="px-3 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-5 w-5 rounded-full border border-border/50 flex-shrink-0"
-                        style={{ backgroundColor: v.kodeHex }}
-                      />
-                      <div>
-                        <p className="text-xs font-medium">{v.namaWarna}</p>
-                        <p className="text-[10px] text-muted-foreground font-mono">
-                          {v.kodeHex}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td
+        <div className="space-y-3">
+          {/* Kelompokkan varian per warna, ukuran sebagai baris di dalamnya */}
+          {Array.from(new Set(variants.map((v) => v.namaWarna))).map(
+            (warna) => {
+              const varianWarna = variants.filter((v) => v.namaWarna === warna);
+              const hex = varianWarna[0]?.kodeHex ?? "#ccc";
+              const totalStok = varianWarna.reduce((s, v) => s + v.stokJadi, 0);
+              const adaKritis = varianWarna.some(
+                (v) =>
+                  hitungVariantStokStatus(v.stokJadi, v.stokMin ?? 20) !==
+                  "aman"
+              );
+              return (
+                <div
+                  key={warna}
+                  className={cn(
+                    "rounded-xl border overflow-hidden",
+                    adaKritis
+                      ? "border-amber-200 dark:border-amber-800"
+                      : "border-border"
+                  )}
+                >
+                  {/* Header kelompok warna */}
+                  <div
                     className={cn(
-                      "px-3 py-2.5 text-right text-xs font-semibold",
-                      hitungVariantStokStatus(v.stokJadi, v.stokMin ?? 20) ===
-                        "habis"
-                        ? "text-red-600"
-                        : hitungVariantStokStatus(
-                            v.stokJadi,
-                            v.stokMin ?? 20
-                          ) === "rendah"
-                        ? "text-amber-600"
-                        : "text-foreground"
+                      "flex items-center justify-between px-3 py-2 border-b",
+                      adaKritis
+                        ? "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+                        : "bg-muted/30 border-border"
                     )}
                   >
-                    {v.stokJadi.toLocaleString("id-ID")}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">
-                    {(v.stokMin ?? 20).toLocaleString("id-ID")}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <StokVarianBadge
-                      stok={v.stokJadi}
-                      stokMin={v.stokMin ?? 20}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => bukaForm(v)}
-                        className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(v)}
-                        className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500 transition-colors"
-                        title="Hapus"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="h-5 w-5 rounded-full border-2 border-white dark:border-gray-700 shadow-sm flex-shrink-0"
+                        style={{ backgroundColor: hex }}
+                      />
+                      <span className="text-xs font-semibold truncate">
+                        {warna}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">
+                        {hex}
+                      </span>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <span className="text-[10px] text-muted-foreground flex-shrink-0 ml-2">
+                      Total:{" "}
+                      <span className="font-medium text-foreground">
+                        {totalStok.toLocaleString("id-ID")}
+                      </span>{" "}
+                      pcs
+                    </span>
+                  </div>
+                  {/* Tabel ukuran di dalam warna ini — overflow-x-auto agar tidak terpotong */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[420px]">
+                      <thead>
+                        <tr className="bg-muted/10 border-b border-border text-[10px] font-medium text-muted-foreground">
+                          <th className="px-3 py-1.5 text-left">Ukuran</th>
+                          <th className="px-3 py-1.5 text-right">Stok Jadi</th>
+                          <th className="px-3 py-1.5 text-right">Min.</th>
+                          <th className="px-3 py-1.5 text-left">Status</th>
+                          <th className="px-3 py-1.5 text-right">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {varianWarna.map((v) => (
+                          <tr
+                            key={v.id}
+                            className="hover:bg-muted/10 transition-colors"
+                          >
+                            <td className="px-3 py-2">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-semibold",
+                                  v.ukuran === "All Size"
+                                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                    : v.ukuran === "Anak-anak"
+                                    ? "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400"
+                                    : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                )}
+                              >
+                                {v.ukuran ?? "—"}
+                              </span>
+                            </td>
+                            <td
+                              className={cn(
+                                "px-3 py-2 text-right text-xs font-semibold",
+                                hitungVariantStokStatus(
+                                  v.stokJadi,
+                                  v.stokMin ?? 20
+                                ) === "habis"
+                                  ? "text-red-600"
+                                  : hitungVariantStokStatus(
+                                      v.stokJadi,
+                                      v.stokMin ?? 20
+                                    ) === "rendah"
+                                  ? "text-amber-600"
+                                  : "text-foreground"
+                              )}
+                            >
+                              {v.stokJadi.toLocaleString("id-ID")}
+                            </td>
+                            <td className="px-3 py-2 text-right text-xs text-muted-foreground">
+                              {(v.stokMin ?? 20).toLocaleString("id-ID")}
+                            </td>
+                            <td className="px-3 py-2">
+                              <StokVarianBadge
+                                stok={v.stokJadi}
+                                stokMin={v.stokMin ?? 20}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => bukaForm(v)}
+                                  title="Edit"
+                                  className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(v)}
+                                  title="Hapus"
+                                  className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500 transition-colors"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            }
+          )}
         </div>
       )}
 
@@ -665,6 +737,39 @@ function VarianWarnaPanelInline({
                   className={cn(inputClass, "font-mono")}
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Pilih Ukuran */}
+          <div>
+            <label className="mb-2 block text-[11px] font-medium text-muted-foreground">
+              Ukuran <span className="text-red-500">*</span>
+            </label>
+            <div className="space-y-2">
+              {Object.entries(UKURAN_GROUPS).map(([grup, ukuranList]) => (
+                <div key={grup}>
+                  <p className="text-[10px] text-muted-foreground mb-1">
+                    {grup}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ukuranList.map((uk) => (
+                      <button
+                        key={uk}
+                        type="button"
+                        onClick={() => setForm((p) => ({ ...p, ukuran: uk }))}
+                        className={cn(
+                          "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
+                          form.ukuran === uk
+                            ? "bg-[#003247] text-white border-[#003247]"
+                            : "bg-background border-border hover:border-[#003247]/50 hover:bg-muted/30"
+                        )}
+                      >
+                        {uk}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1100,12 +1205,14 @@ function ProductDetailModal({
   materials,
   onClose,
   onEdit,
+  onVariantChange,
 }: {
   product: Product;
   categories: ProductCategory[];
   materials: Material[];
   onClose: () => void;
   onEdit: () => void;
+  onVariantChange?: (productId: string, variants: ProductVariant[]) => void;
 }) {
   const [tab, setTab] = useState<DetailTab>("info");
   const kategoriNama =
@@ -1116,6 +1223,15 @@ function ProductDetailModal({
           ((product.hargaJual - product.hargaPokok) / product.hargaJual) * 100
         )
       : null;
+
+  // Stable callback agar VarianWarnaPanelInline tidak re-fetch terus (infinite loop)
+  const handleVariantChangeInner = useCallback(
+    (variants: ProductVariant[]) => {
+      if (product.id) onVariantChange?.(product.id, variants);
+    },
+    // product.id dan onVariantChange stabil dari parent (useCallback), aman sebagai dep
+    [product.id, onVariantChange]
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -1177,7 +1293,7 @@ function ProductDetailModal({
           })}
         </div>
 
-        <div className="overflow-y-auto max-h-[65vh]">
+        <div className="overflow-y-auto max-h-[60vh]">
           {/* Tab: Info */}
           {tab === "info" && (
             <div className="px-6 py-5 space-y-4">
@@ -1251,7 +1367,11 @@ function ProductDetailModal({
                 Kelola stok tiap warna. Kalau stok di bawah minimum, akan muncul
                 alert dan tim produksi bisa buat WO baru untuk warna tersebut.
               </p>
-              <VarianWarnaPanelInline productId={product.id} jumlahTarget={0} />
+              <VarianWarnaPanelInline
+                productId={product.id}
+                jumlahTarget={0}
+                onVariantChange={handleVariantChangeInner}
+              />
             </div>
           )}
 
@@ -1401,6 +1521,15 @@ export default function KatalogProdukPage() {
   const [editProduct, setEditProduct] = useState<Product | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Stable callback — tidak berubah referensi antar render, mencegah infinite loop
+  // di VarianWarnaPanelInline yang pakai onVariantChange sebagai useCallback dep
+  const handleVariantChange = useCallback(
+    (productId: string, variants: ProductVariant[]) => {
+      setVariantMap((prev) => ({ ...prev, [productId]: variants }));
+    },
+    []
+  );
 
   async function loadData() {
     setLoading(true);
@@ -1631,13 +1760,13 @@ export default function KatalogProdukPage() {
           ))}
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <button
-          onClick={() => setEditProduct("new")}
-          className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Tambah Produk
-        </button>
-      </div>
+          <button
+            onClick={() => setEditProduct("new")}
+            className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Tambah Produk
+          </button>
+        </div>
       </div>
 
       <p className="text-xs text-muted-foreground -mt-2">
@@ -1690,6 +1819,7 @@ export default function KatalogProdukPage() {
             setEditProduct(detailProduct);
             setDetailProduct(null);
           }}
+          onVariantChange={handleVariantChange}
         />
       )}
 

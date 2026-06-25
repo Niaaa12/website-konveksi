@@ -11,6 +11,7 @@ import type {
   ProductionUnit,
   AppUser,
   ProductVariant,
+  UkuranHijab,
 } from "@/lib/firestore";
 import { getProductVariants, hitungVariantStokStatus } from "@/lib/firestore";
 import { STATUS_CFG } from "./work-order-shared";
@@ -19,6 +20,7 @@ export interface WOFormData {
   nomor: string;
   productId: string;
   variantId: string;
+  ukuranId: string;
   jumlahTarget: number;
   status: WoStatus;
   prioritas: WoPrioritas;
@@ -33,6 +35,7 @@ const EMPTY_WO: WOFormData = {
   nomor: "",
   productId: "",
   variantId: "",
+  ukuranId: "",
   jumlahTarget: 0,
   status: "dijadwalkan",
   prioritas: "normal",
@@ -73,12 +76,18 @@ export function WOFormModal({
   onSave: (data: WOFormData, id?: string) => Promise<void>;
 }) {
   const isEdit = !!initial;
+
+  // selectedWarnaName: nama warna yang sedang dipilih user (step 1)
+  // variantId di form: ID varian final (warna + ukuran terpilih)
+  const [selectedWarnaName, setSelectedWarnaName] = useState<string>("");
+
   const [form, setForm] = useState<WOFormData>(
     initial
       ? {
           nomor: initial.nomor,
           productId: initial.productId,
           variantId: initial.variantId ?? "",
+          ukuranId: "",
           jumlahTarget: initial.jumlahTarget,
           status: initial.status,
           prioritas: initial.prioritas,
@@ -102,16 +111,25 @@ export function WOFormModal({
   useEffect(() => {
     if (!form.productId) {
       setVariants([]);
-      setForm((p) => ({ ...p, variantId: "" }));
+      setSelectedWarnaName("");
+      setForm((p) => ({ ...p, variantId: "", ukuranId: "" }));
       return;
     }
     setLoadingVariants(true);
     getProductVariants(form.productId)
       .then((v) => {
         setVariants(v);
-        // Kalau edit dan variantId sudah ada tapi tidak ada di daftar baru → reset
-        if (form.variantId && !v.some((x) => x.id === form.variantId)) {
-          setForm((p) => ({ ...p, variantId: "" }));
+        // Kalau edit, coba restore warna dari variantId yang ada
+        if (form.variantId) {
+          const existing = v.find((x) => x.id === form.variantId);
+          if (existing) {
+            setSelectedWarnaName(existing.namaWarna);
+            // Restore ukuranId dari varian yang ditemukan agar varianFinal terhitung
+            setForm((p) => ({ ...p, ukuranId: existing.ukuran ?? "" }));
+          } else {
+            setSelectedWarnaName("");
+            setForm((p) => ({ ...p, variantId: "", ukuranId: "" }));
+          }
         }
       })
       .catch(() => setVariants([]))
@@ -124,8 +142,17 @@ export function WOFormModal({
     setForm((p) => ({ ...p, [k]: v }));
   }
 
-  // Varian yang dipilih saat ini
-  const varianDipilih = variants.find((v) => v.id === form.variantId);
+  // Warna unik (satu entry per warna)
+  const warnaUnik = Array.from(
+    new Map(variants.map((v) => [v.namaWarna, v])).values()
+  );
+  // Ukuran tersedia untuk warna yang sedang dipilih
+  const ukuranTersedia = selectedWarnaName
+    ? variants.filter((v) => v.namaWarna === selectedWarnaName)
+    : [];
+  // Varian final = varian dengan warna + ukuran yang dipilih
+  const varianFinal = ukuranTersedia.find((v) => v.id === form.variantId);
+  // Untuk tampilan: varian kritis
   const varianKritis = variants.filter(
     (v) => hitungVariantStokStatus(v.stokJadi, v.stokMin ?? 20) !== "aman"
   );
@@ -150,9 +177,14 @@ export function WOFormModal({
       setError("Jumlah target harus lebih dari 0.");
       return;
     }
-    // Varian wajib dipilih jika produk punya varian
-    if (variants.length > 0 && !form.variantId) {
+    // Warna wajib dipilih jika produk punya varian
+    if (variants.length > 0 && !selectedWarnaName) {
       setError("Pilih warna yang ingin diproduksi.");
+      return;
+    }
+    // Ukuran wajib dipilih jika ada pilihan ukuran untuk warna yang dipilih
+    if (selectedWarnaName && ukuranTersedia.length > 0 && !form.variantId) {
+      setError("Pilih ukuran untuk warna yang dipilih.");
       return;
     }
     setSaving(true);
@@ -290,81 +322,205 @@ export function WOFormModal({
                       </div>
                     )}
 
-                    {/* Grid pilih warna — visual dot + nama + stok */}
-                    <div className="grid grid-cols-2 gap-2">
-                      {variants.map((v) => {
-                        const isSelected = form.variantId === v.id;
-                        const stokStatus = hitungVariantStokStatus(
-                          v.stokJadi,
-                          v.stokMin ?? 20
-                        );
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() =>
-                              set("variantId", isSelected ? "" : v.id!)
-                            }
-                            className={cn(
-                              "flex items-center gap-2.5 rounded-xl border p-2.5 text-left transition-all",
-                              isSelected
-                                ? "border-[#003247] bg-[#003247]/5 ring-1 ring-[#003247]/30"
-                                : stokStatus === "habis"
-                                ? "border-red-200 bg-red-50/50 dark:bg-red-950/10 hover:border-red-300"
-                                : stokStatus === "rendah"
-                                ? "border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 hover:border-amber-300"
-                                : "border-border hover:bg-muted/40"
-                            )}
-                          >
-                            {/* Dot warna */}
-                            <span
+                    {/* LANGKAH 1 — Pilih Warna */}
+                    <div>
+                      <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                        1. Pilih Warna
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {warnaUnik.map((v) => {
+                          const isSelected = selectedWarnaName === v.namaWarna;
+                          const varianWarna = variants.filter(
+                            (x) => x.namaWarna === v.namaWarna
+                          );
+                          const adaKritis = varianWarna.some(
+                            (x) =>
+                              hitungVariantStokStatus(
+                                x.stokJadi,
+                                x.stokMin ?? 20
+                              ) !== "aman"
+                          );
+                          return (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onClick={() => {
+                                // Pilih warna: reset ukuran & variantId, set nama warna
+                                setSelectedWarnaName(v.namaWarna);
+                                setForm((p) => ({
+                                  ...p,
+                                  variantId: "",
+                                  ukuranId: "",
+                                }));
+                              }}
                               className={cn(
-                                "h-6 w-6 rounded-full flex-shrink-0 border-2",
+                                "flex items-center gap-2.5 rounded-xl border p-2.5 text-left transition-all",
                                 isSelected
-                                  ? "border-[#003247]"
-                                  : "border-white dark:border-gray-700"
+                                  ? "border-[#003247] bg-[#003247]/5 ring-1 ring-[#003247]/30"
+                                  : adaKritis
+                                  ? "border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 hover:border-amber-300"
+                                  : "border-border hover:bg-muted/40"
                               )}
-                              style={{ backgroundColor: v.kodeHex }}
-                            />
-                            <div className="min-w-0">
-                              <p
+                            >
+                              <span
                                 className={cn(
-                                  "text-xs font-medium truncate leading-tight",
+                                  "h-6 w-6 rounded-full flex-shrink-0 border-2",
                                   isSelected
-                                    ? "text-[#003247]"
-                                    : "text-foreground"
+                                    ? "border-[#003247]"
+                                    : "border-white dark:border-gray-700"
                                 )}
-                              >
-                                {v.namaWarna}
-                              </p>
-                              <div className="mt-0.5">
-                                <StokBadge
-                                  stok={v.stokJadi}
-                                  stokMin={v.stokMin ?? 20}
-                                />
+                                style={{ backgroundColor: v.kodeHex }}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p
+                                  className={cn(
+                                    "text-xs font-medium truncate",
+                                    isSelected ? "text-[#003247]" : ""
+                                  )}
+                                >
+                                  {v.namaWarna}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {varianWarna.length}{" "}
+                                  {varianWarna.length === 1
+                                    ? "ukuran"
+                                    : "ukuran"}
+                                  {adaKritis && (
+                                    <span className="text-amber-600 ml-1">
+                                      · stok kritis
+                                    </span>
+                                  )}
+                                </p>
                               </div>
-                            </div>
-                            {/* Centang kalau terpilih */}
-                            {isSelected && (
-                              <Check className="h-3.5 w-3.5 text-[#003247] flex-shrink-0 ml-auto" />
-                            )}
-                          </button>
-                        );
-                      })}
+                              {isSelected && (
+                                <Check className="h-3.5 w-3.5 text-[#003247] flex-shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    {/* Preview warna yang dipilih */}
-                    {varianDipilih && (
-                      <div className="flex items-center gap-2 mt-2 rounded-xl bg-[#003247]/5 border border-[#003247]/20 px-3 py-2">
+                    {/* LANGKAH 2 — Pilih Ukuran (muncul setelah warna dipilih) */}
+                    {selectedWarnaName && ukuranTersedia.length > 0 && (
+                      <div className="rounded-xl border border-[#003247]/20 bg-[#003247]/5 p-3 space-y-2">
+                        <p className="text-[11px] font-medium text-muted-foreground">
+                          2. Pilih Ukuran untuk{" "}
+                          <span className="text-foreground font-semibold">
+                            {selectedWarnaName}
+                          </span>
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {ukuranTersedia.map((v) => {
+                            const isSelected = form.variantId === v.id;
+                            const stokStatus = hitungVariantStokStatus(
+                              v.stokJadi,
+                              v.stokMin ?? 20
+                            );
+                            return (
+                              <button
+                                key={v.id}
+                                type="button"
+                                onClick={() => {
+                                  // Saat pilih ukuran, update variantId ke ID varian final
+                                  if (isSelected) {
+                                    setForm((p) => ({
+                                      ...p,
+                                      variantId: "",
+                                      ukuranId: "",
+                                    }));
+                                  } else {
+                                    setForm((p) => ({
+                                      ...p,
+                                      variantId: v.id!,
+                                      ukuranId: v.ukuran,
+                                    }));
+                                  }
+                                }}
+                                className={cn(
+                                  "flex flex-col items-center rounded-xl border px-3 py-2 min-w-[60px] transition-all",
+                                  isSelected
+                                    ? "border-[#003247] bg-[#003247] text-white ring-1 ring-[#003247]/30"
+                                    : stokStatus === "habis"
+                                    ? "border-red-200 bg-red-50/50 dark:bg-red-950/10 hover:border-red-300"
+                                    : stokStatus === "rendah"
+                                    ? "border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 hover:border-amber-300"
+                                    : "border-border hover:bg-muted/40"
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    "text-sm font-bold",
+                                    isSelected ? "text-white" : ""
+                                  )}
+                                >
+                                  {v.ukuran}
+                                </span>
+                                <span
+                                  className={cn(
+                                    "text-[10px] mt-0.5",
+                                    isSelected
+                                      ? "text-white/80"
+                                      : stokStatus === "habis"
+                                      ? "text-red-600"
+                                      : stokStatus === "rendah"
+                                      ? "text-amber-600"
+                                      : "text-muted-foreground"
+                                  )}
+                                >
+                                  {stokStatus === "habis"
+                                    ? "Habis"
+                                    : stokStatus === "rendah"
+                                    ? `${v.stokJadi} ⚠`
+                                    : `${v.stokJadi}`}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {/* Saran produksi kalau ukuran kritis */}
+                        {varianFinal &&
+                          hitungVariantStokStatus(
+                            varianFinal.stokJadi,
+                            varianFinal.stokMin ?? 20
+                          ) !== "aman" && (
+                            <div className="flex items-start gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-2.5 py-2">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                                Stok {varianFinal.namaWarna} ukuran{" "}
+                                {varianFinal.ukuran} saat ini{" "}
+                                <strong>{varianFinal.stokJadi} pcs</strong>{" "}
+                                (min. {varianFinal.stokMin ?? 20} pcs). Produksi
+                                minimal{" "}
+                                <strong>
+                                  {Math.max(
+                                    0,
+                                    (varianFinal.stokMin ?? 20) -
+                                      varianFinal.stokJadi +
+                                      50
+                                  )}{" "}
+                                  pcs
+                                </strong>{" "}
+                                untuk mengisi stok.
+                              </p>
+                            </div>
+                          )}
+                      </div>
+                    )}
+
+                    {/* Preview akhir: warna + ukuran terpilih */}
+                    {varianFinal && form.variantId && (
+                      <div className="flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 px-3 py-2">
+                        <Check className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
                         <span
                           className="h-4 w-4 rounded-full flex-shrink-0 border border-border/50"
-                          style={{ backgroundColor: varianDipilih.kodeHex }}
+                          style={{ backgroundColor: varianFinal.kodeHex }}
                         />
-                        <p className="text-xs text-[#003247] font-medium">
-                          Dipilih: {varianDipilih.namaWarna}
+                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                          {varianFinal.namaWarna} — ukuran {varianFinal.ukuran}
                         </p>
                         <span className="text-[10px] text-muted-foreground ml-auto">
-                          Stok: {varianDipilih.stokJadi} pcs
+                          Stok: {varianFinal.stokJadi} pcs
                         </span>
                       </div>
                     )}
@@ -424,22 +580,20 @@ export function WOFormModal({
                 className={inputClass}
               />
               {/* Saran jumlah target berdasarkan stok varian yang dipilih */}
-              {varianDipilih &&
+              {varianFinal &&
                 hitungVariantStokStatus(
-                  varianDipilih.stokJadi,
-                  varianDipilih.stokMin ?? 20
+                  varianFinal.stokJadi,
+                  varianFinal.stokMin ?? 20
                 ) !== "aman" && (
                   <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
-                    Stok {varianDipilih.namaWarna} saat ini{" "}
-                    {varianDipilih.stokJadi} pcs (min.{" "}
-                    {varianDipilih.stokMin ?? 20} pcs). Produksi setidaknya{" "}
+                    Stok {varianFinal.namaWarna} ukuran {varianFinal.ukuran}{" "}
+                    saat ini {varianFinal.stokJadi} pcs (min.{" "}
+                    {varianFinal.stokMin ?? 20} pcs). Produksi minimal{" "}
                     {Math.max(
                       0,
-                      (varianDipilih.stokMin ?? 20) -
-                        varianDipilih.stokJadi +
-                        50
+                      (varianFinal.stokMin ?? 20) - varianFinal.stokJadi + 50
                     )}{" "}
-                    pcs untuk mengisi kembali.
+                    pcs untuk mengisi stok.
                   </p>
                 )}
             </div>

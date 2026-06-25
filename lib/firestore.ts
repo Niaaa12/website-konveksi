@@ -424,10 +424,38 @@ export interface ProductCategory {
  * stokMin:  batas minimum stok — kalau di bawah ini, sistem tandai kritis
  *           dan tim produksi bisa buat WO baru untuk warna ini.
  */
+export type UkuranHijab =
+  | "All Size"
+  | "Anak-anak"
+  | "S"
+  | "M"
+  | "L"
+  | "XL"
+  | "XXL"
+  | "XXXL";
+
+export const UKURAN_OPTIONS: UkuranHijab[] = [
+  "All Size",
+  "Anak-anak",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "XXXL",
+];
+
+export const UKURAN_GROUPS: Record<string, UkuranHijab[]> = {
+  Umum: ["All Size"],
+  "Anak-anak": ["Anak-anak"],
+  Dewasa: ["S", "M", "L", "XL", "XXL", "XXXL"],
+};
+
 export interface ProductVariant {
   id?: string;
   namaWarna: string;
   kodeHex: string; // kode warna HEX, mis. "#E8C4C4"
+  ukuran: UkuranHijab; // ukuran spesifik varian ini
   stokJadi: number;
   stokMin: number; // default 20 jika tidak diisi
 }
@@ -526,6 +554,25 @@ export async function getVarianKritis(
   const variants = await getProductVariants(productId);
   return variants.filter(
     (v) => hitungVariantStokStatus(v.stokJadi, v.stokMin ?? 20) !== "aman"
+  );
+}
+
+export async function getVariantsByProductIds(
+  productIds: string[]
+): Promise<Record<string, ProductVariant[]>> {
+  const unique = [...new Set(productIds)].filter(Boolean);
+  if (unique.length === 0) return {};
+
+  const results = await Promise.all(
+    unique.map((pid) =>
+      getProductVariants(pid)
+        .then((variants) => ({ pid, variants }))
+        .catch(() => ({ pid, variants: [] as ProductVariant[] }))
+    )
+  );
+
+  return Object.fromEntries(
+    results.map(({ pid, variants }) => [pid, variants])
   );
 }
 
