@@ -4,8 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import {
   getProducts,
   getProductVariants,
-  getProductOutflows,
-  createProductOutflow,
+  getWarehouseTransfers,
+  createWarehouseTransfer,
   type Product,
   type ProductVariant,
 } from "@/lib/firestore";
@@ -14,19 +14,19 @@ import {
   Loader2,
   RefreshCw,
   Search,
-  Package,
+  ArrowLeftRight,
   Calendar,
   User,
+  FileText,
   AlertTriangle,
   X,
   Check,
-  Truck,
 } from "lucide-react";
 import { getAuth } from "firebase/auth";
 import { cn } from "@/lib/utils";
 
-export default function PengeluaranProdukPage() {
-  const [outflows, setOutflows] = useState<any[]>([]);
+export default function TransferGudangPage() {
+  const [transfers, setTransfers] = useState<any[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -39,7 +39,6 @@ export default function PengeluaranProdukPage() {
   const [loadingVariants, setLoadingVariants] = useState(false);
   const [jumlah, setJumlah] = useState<number>(0);
   const [tanggal, setTanggal] = useState(new Date().toISOString().slice(0, 10));
-  const [pelanggan, setPelanggan] = useState("");
   const [catatan, setCatatan] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -51,21 +50,21 @@ export default function PengeluaranProdukPage() {
     const auth = getAuth();
     if (auth.currentUser) {
       setCurrentUserId(auth.currentUser.uid);
-      setCurrentUserNama(auth.currentUser.displayName ?? auth.currentUser.email ?? "Staf Packing");
+      setCurrentUserNama(auth.currentUser.displayName ?? auth.currentUser.email ?? "Staf");
     }
   }, []);
 
   async function loadData() {
     setLoading(true);
     try {
-      const [listOut, listProds] = await Promise.all([
-        getProductOutflows(),
+      const [listTrf, listProds] = await Promise.all([
+        getWarehouseTransfers(),
         getProducts(undefined, true),
       ]);
-      setOutflows(listOut);
+      setTransfers(listTrf);
       setProducts(listProds);
     } catch (e) {
-      console.error("Gagal memuat data pengeluaran:", e);
+      console.error("Gagal memuat data transfer:", e);
     } finally {
       setLoading(false);
     }
@@ -101,26 +100,25 @@ export default function PengeluaranProdukPage() {
   }, [products, selectedProductId]);
 
   const filtered = useMemo(() => {
-    return outflows.filter((o) => {
+    return transfers.filter((t) => {
       const q = search.toLowerCase();
       return (
-        o.nomorOutflow.toLowerCase().includes(q) ||
-        o.productName.toLowerCase().includes(q) ||
-        o.warna.toLowerCase().includes(q) ||
-        (o.pelanggan && o.pelanggan.toLowerCase().includes(q)) ||
-        (o.catatan && o.catatan.toLowerCase().includes(q))
+        t.nomorTransfer.toLowerCase().includes(q) ||
+        t.productName.toLowerCase().includes(q) ||
+        t.warna.toLowerCase().includes(q) ||
+        (t.catatan && t.catatan.toLowerCase().includes(q))
       );
     });
-  }, [outflows, search]);
+  }, [transfers, search]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedProductId || !selectedVariantId || jumlah <= 0 || !pelanggan) {
+    if (!selectedProductId || !selectedVariantId || jumlah <= 0) {
       setError("Semua field wajib diisi dengan benar.");
       return;
     }
-    if (selectedVariant && jumlah > (selectedVariant.stokGudangPacking ?? 0)) {
-      setError(`Jumlah pengeluaran melebihi stok Gudang Packing (${selectedVariant.stokGudangPacking ?? 0} pcs tersedia).`);
+    if (selectedVariant && jumlah > selectedVariant.stokJadi) {
+      setError(`Jumlah transfer melebihi stok Gudang Besar (${selectedVariant.stokJadi} pcs tersedia).`);
       return;
     }
 
@@ -128,16 +126,15 @@ export default function PengeluaranProdukPage() {
     setError("");
 
     try {
-      await createProductOutflow({
-        nomorOutflow: `OUT-${Date.now().toString().slice(-6)}`,
+      await createWarehouseTransfer({
+        nomorTransfer: `TRF-${Date.now().toString().slice(-6)}`,
         productId: selectedProductId,
         productName: selectedProduct?.nama ?? "Produk",
         variantId: selectedVariantId,
         warna: selectedVariant?.namaWarna ?? "Warna",
         ukuran: selectedVariant?.ukuran ?? "All Size",
         jumlah: jumlah,
-        tanggalOutflow: tanggal,
-        pelanggan: pelanggan,
+        tanggalTransfer: tanggal,
         catatan: catatan,
         dibuatOleh: currentUserNama,
       });
@@ -148,11 +145,10 @@ export default function PengeluaranProdukPage() {
       setSelectedVariantId("");
       setJumlah(0);
       setTanggal(new Date().toISOString().slice(0, 10));
-      setPelanggan("");
       setCatatan("");
       await loadData();
     } catch (err: any) {
-      setError(err.message ?? "Gagal memproses pengeluaran produk.");
+      setError(err.message ?? "Gagal memproses transfer.");
     } finally {
       setSaving(false);
     }
@@ -166,7 +162,7 @@ export default function PengeluaranProdukPage() {
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Cari log pengeluaran..."
+            placeholder="Cari log transfer..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30"
@@ -188,7 +184,7 @@ export default function PengeluaranProdukPage() {
             className="flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Catat Pengeluaran
+            Catat Transfer
           </button>
         </div>
       </div>
@@ -198,7 +194,7 @@ export default function PengeluaranProdukPage() {
         <div className="flex h-[40vh] items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-[#003247]" />
-            <p className="text-sm text-muted-foreground">Memuat data pengeluaran...</p>
+            <p className="text-sm text-muted-foreground">Memuat riwayat transfer...</p>
           </div>
         </div>
       ) : (
@@ -207,57 +203,53 @@ export default function PengeluaranProdukPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs font-medium text-muted-foreground bg-muted/30 border-b border-border">
-                  <th className="px-5 py-3">No. Pengeluaran</th>
+                  <th className="px-5 py-3">No. Transfer</th>
                   <th className="px-5 py-3">Tanggal</th>
-                  <th className="px-5 py-3">Pelanggan / Pesanan</th>
                   <th className="px-5 py-3">Produk</th>
                   <th className="px-5 py-3">Varian (Warna & Ukuran)</th>
                   <th className="px-5 py-3 text-right">Jumlah</th>
-                  <th className="px-5 py-3">Petugas Packing</th>
+                  <th className="px-5 py-3">Petugas</th>
                   <th className="px-5 py-3">Catatan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-10 text-muted-foreground text-xs">
-                      Tidak ada data log pengeluaran produk jadi.
+                    <td colSpan={7} className="text-center py-10 text-muted-foreground text-xs">
+                      Tidak ada data log transfer.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((o) => (
-                    <tr key={o.id} className="hover:bg-muted/10 transition-colors">
+                  filtered.map((t) => (
+                    <tr key={t.id} className="hover:bg-muted/10 transition-colors">
                       <td className="px-5 py-4 font-mono font-semibold text-xs text-[#003247]">
-                        {o.nomorOutflow}
+                        {t.nomorTransfer}
                       </td>
                       <td className="px-5 py-4 text-xs text-muted-foreground">
-                        {o.tanggalOutflow}
+                        {t.tanggalTransfer}
                       </td>
                       <td className="px-5 py-4 font-medium text-foreground">
-                        {o.pelanggan}
-                      </td>
-                      <td className="px-5 py-4">
-                        {o.productName}
+                        {t.productName}
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           <span
                             className="h-3 w-3 rounded-full border border-border/50"
-                            style={{ backgroundColor: o.kodeHex || "#ccc" }}
+                            style={{ backgroundColor: t.kodeHex || "#ccc" }}
                           />
                           <span className="text-xs">
-                            {o.warna} · <span className="text-[10px] text-muted-foreground">{o.ukuran}</span>
+                            {t.warna} · <span className="text-[10px] text-muted-foreground">{t.ukuran}</span>
                           </span>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-right font-mono font-bold text-red-500">
-                        -{o.jumlah.toLocaleString("id-ID")} pcs
+                      <td className="px-5 py-4 text-right font-mono font-bold text-emerald-600">
+                        +{t.jumlah.toLocaleString("id-ID")} pcs
                       </td>
                       <td className="px-5 py-4 text-xs text-muted-foreground">
-                        {o.dibuatOleh}
+                        {t.dibuatOleh}
                       </td>
-                      <td className="px-5 py-4 text-xs text-muted-foreground max-w-xs truncate" title={o.catatan}>
-                        {o.catatan || "—"}
+                      <td className="px-5 py-4 text-xs text-muted-foreground max-w-xs truncate" title={t.catatan}>
+                        {t.catatan || "—"}
                       </td>
                     </tr>
                   ))
@@ -268,12 +260,12 @@ export default function PengeluaranProdukPage() {
         </div>
       )}
 
-      {/* Modal Form Pengeluaran */}
+      {/* Modal Form Transfer */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <h3 className="text-sm font-semibold">Catat Pengeluaran Produk Jadi</h3>
+              <h3 className="text-sm font-semibold">Catat Transfer Gudang</h3>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="rounded-lg p-1 hover:bg-muted/50 transition-colors"
@@ -325,7 +317,7 @@ export default function PengeluaranProdukPage() {
                         <option value="">-- Pilih Varian --</option>
                         {variants.map((v) => (
                           <option key={v.id} value={v.id}>
-                            {v.namaWarna} · {v.ukuran} (Stok Gudang Packing: {v.stokGudangPacking ?? 0} pcs)
+                            {v.namaWarna} · {v.ukuran} (Stok Gudang Besar: {v.stokJadi} pcs)
                           </option>
                         ))}
                       </select>
@@ -337,45 +329,30 @@ export default function PengeluaranProdukPage() {
                 {selectedVariant && (
                   <div className="rounded-xl bg-muted/40 p-4 space-y-1.5 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Stok Gudang Packing saat ini:</span>
-                      <span className="font-mono font-bold text-red-500">
-                        {selectedVariant.stokGudangPacking ?? 0} pcs
+                      <span className="text-muted-foreground">Stok Gudang Besar saat ini:</span>
+                      <span className="font-mono font-bold text-emerald-600">
+                        {selectedVariant.stokJadi} pcs
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Batas Minimum Stok Packing:</span>
+                      <span className="text-muted-foreground">Stok Gudang Packing saat ini:</span>
                       <span className="font-mono text-muted-foreground">
-                        {selectedVariant.stokMin ?? 20} pcs
+                        {selectedVariant.stokGudangPacking ?? 0} pcs (min. {selectedVariant.stokMin ?? 20})
                       </span>
                     </div>
                   </div>
                 )}
 
-                {/* Pelanggan / Pesanan */}
-                <div>
-                  <label className="block text-xs font-medium mb-1.5">
-                    Nama Pelanggan / No. Pesanan <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={pelanggan}
-                    onChange={(e) => setPelanggan(e.target.value)}
-                    placeholder="Nama Pelanggan atau Kode Order..."
-                    className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30"
-                    required
-                  />
-                </div>
-
                 {/* Input Jumlah & Tanggal */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium mb-1.5">
-                      Jumlah Keluar <span className="text-red-500">*</span>
+                      Jumlah Transfer <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
                       min={1}
-                      max={selectedVariant ? (selectedVariant.stokGudangPacking ?? 0) : undefined}
+                      max={selectedVariant ? selectedVariant.stokJadi : undefined}
                       value={jumlah}
                       onChange={(e) => setJumlah(Math.max(0, Number(e.target.value)))}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30"
@@ -384,7 +361,7 @@ export default function PengeluaranProdukPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-medium mb-1.5">
-                      Tanggal Keluar <span className="text-red-500">*</span>
+                      Tanggal Transfer <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="date"
@@ -403,7 +380,7 @@ export default function PengeluaranProdukPage() {
                     rows={2}
                     value={catatan}
                     onChange={(e) => setCatatan(e.target.value)}
-                    placeholder="Tulis keterangan pengeluaran produk..."
+                    placeholder="Tulis keterangan transfer..."
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30 resize-none"
                   />
                 </div>
@@ -435,7 +412,7 @@ export default function PengeluaranProdukPage() {
                   ) : (
                     <Check className="h-3.5 w-3.5" />
                   )}
-                  Simpan Pengeluaran
+                  Simpan Transfer
                 </button>
               </div>
             </form>

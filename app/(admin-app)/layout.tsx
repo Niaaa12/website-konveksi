@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/Topbar";
 import { usePathname } from "next/navigation";
@@ -24,13 +25,17 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
     title: "Bahan Baku",
     subtitle: "Kelola stok & informasi bahan baku",
   },
-  "/persediaan/penerimaan": {
-    title: "Penerimaan Bahan",
-    subtitle: "Catat penerimaan bahan baku dari supplier",
+  "/persediaan/produk-jadi": {
+    title: "Master Produk Jadi",
+    subtitle: "Kelola stok produk jadi di Gudang Besar & Gudang Packing",
+  },
+  "/persediaan/transfer": {
+    title: "Transfer Gudang",
+    subtitle: "Catat dan pantau perpindahan stok dari Gudang Besar ke Gudang Packing",
   },
   "/persediaan/pengeluaran": {
-    title: "Pengeluaran Bahan",
-    subtitle: "Catat pengeluaran bahan ke lantai produksi",
+    title: "Pengeluaran Produk Jadi",
+    subtitle: "Catat pengiriman/pengeluaran produk dari Gudang Packing",
   },
   "/progress": {
     title: "Progress Produksi",
@@ -60,16 +65,20 @@ export default function Applayout({ children }: { children: React.ReactNode }) {
   const pageInfo = pageTitles[pathname] ?? { title: "Halaman", subtitle: "" };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar
-          onMenuClick={() => setSidebarOpen(true)}
-          title={pageInfo.title}
-          subtitle={pageInfo.subtitle}
-        />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+    // AuthGuard tanpa allowedRoles = semua user yang sudah login boleh masuk.
+    // Proteksi per-halaman (allowedRoles) diatur di masing-masing page.tsx.
+    <AuthGuard>
+      <div className="flex h-screen overflow-hidden bg-background">
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <TopBar
+            onMenuClick={() => setSidebarOpen(true)}
+            title={pageInfo.title}
+            subtitle={pageInfo.subtitle}
+          />
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 }

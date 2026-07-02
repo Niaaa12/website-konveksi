@@ -11,9 +11,12 @@ import {
   TrendingUp,
   Zap,
   Loader2,
+  X,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getAuth } from "firebase/auth";
 import { cn } from "@/lib/utils";
 import {
   getDashboardStats,
@@ -21,6 +24,8 @@ import {
   getProductionUnits,
   getWorkOrders,
   getProducts,
+  getKritisPackingVariants,
+  createWarehouseTransfer,
   ProductionUnit,
 } from "@/lib/firestore";
 import {
@@ -110,11 +115,55 @@ export default function DashboardPage() {
     []
   );
 
+  const [kritisPacking, setKritisPacking] = useState<any[]>([]);
+  const [transferTarget, setTransferTarget] = useState<any | null>(null);
+  const [transferJumlah, setTransferJumlah] = useState<number>(0);
+  const [transferring, setTransferring] = useState(false);
+  const [transferError, setTransferError] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  async function handleTransferSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!transferTarget) return;
+    if (transferJumlah <= 0 || transferJumlah > transferTarget.stokGudangBesar) {
+      setTransferError("Jumlah transfer tidak valid.");
+      return;
+    }
+    setTransferring(true);
+    setTransferError("");
+    try {
+      await createWarehouseTransfer({
+        nomorTransfer: `TRF-${Date.now().toString().slice(-6)}`,
+        productId: transferTarget.productId,
+        productName: transferTarget.productName,
+        variantId: transferTarget.variantId,
+        warna: transferTarget.warna,
+        ukuran: transferTarget.ukuran,
+        jumlah: transferJumlah,
+        tanggalTransfer: new Date().toISOString().slice(0, 10),
+        catatan: "Transfer cepat dari Dashboard Peringatan Stok",
+        dibuatOleh: currentUser?.displayName ?? currentUser?.email ?? "Kepala Gudang",
+      });
+      setTransferTarget(null);
+      // Reload
+      window.location.reload();
+    } catch (err: any) {
+      setTransferError(err.message ?? "Gagal memproses transfer.");
+    } finally {
+      setTransferring(false);
+    }
+  }
+
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [dashStats, materials, units, wos, prods] = await Promise.all([
+        const auth = getAuth();
+        if (auth.currentUser) {
+          setCurrentUser(auth.currentUser);
+        }
+
+        const [dashStats, materials, units, wos, prods, kpVars] = await Promise.all([
           getDashboardStats().catch((e) => {
             console.error("❌ getDashboardStats error:", e);
             return {
@@ -142,10 +191,15 @@ export default function DashboardPage() {
             console.error("❌ getProducts error:", e);
             return [];
           }),
+          getKritisPackingVariants().catch((e) => {
+            console.error("❌ getKritisPackingVariants error:", e);
+            return [];
+          }),
         ]);
 
         setStats(dashStats);
         setUnitsList(units);
+        setKritisPacking(kpVars);
 
         // Sum inventory value
         const totalVal = materials.reduce(
@@ -158,8 +212,8 @@ export default function DashboardPage() {
         const avgEff =
           units.length > 0
             ? Math.round(
-                units.reduce((sum, u) => sum + u.efisiensi, 0) / units.length
-              )
+              units.reduce((sum, u) => sum + u.efisiensi, 0) / units.length
+            )
             : 0;
         setEfisiensiProd(avgEff);
 
@@ -167,7 +221,7 @@ export default function DashboardPage() {
         const mappedWos = wos.slice(0, 5).map((wo) => {
           const prod = prods.find((p) => p.id === wo.productId);
           return {
-            id: wo.id || "",
+            id: wo.nomor || "",
             produk: prod ? prod.nama : "Produk Tidak Dikenal",
             target: wo.jumlahTarget,
             status: wo.status.charAt(0).toUpperCase() + wo.status.slice(1),
@@ -247,6 +301,68 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Alert Kritis Gudang Packing */}
+      {kritisPacking.length > 0 && (
+        <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                Peringatan Stok Gudang Packing Di Bawah Batas Minimum!
+              </p>
+              <p className="text-xs text-red-600/80 dark:text-red-400/70 mt-0.5 font-medium">
+                Ada {kritisPacking.length} varian produk yang stoknya kritis di Gudang Packing. Mohon segera ditindaklanjuti.
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-3 divide-y divide-red-200/50 border-t border-red-200/50">
+            {kritisPacking.map((item) => {
+              const cukupDiBesar = item.stokGudangBesar > 0;
+              return (
+                <div key={item.variantId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-2.5 text-xs">
+                  <div>
+                    <span className="font-semibold text-red-900">{item.productName}</span>
+                    <span className="mx-1.5 text-red-400">·</span>
+                    <span className="font-medium text-red-800">
+                      Warna: {item.warna} · Ukuran: {item.ukuran}
+                    </span>
+                    <div className="mt-0.5 text-[10px] text-red-600/95 font-medium">
+                      Stok Packing: <span className="font-bold font-mono text-red-700">{item.stokGudangPacking} pcs</span> (min. {item.stokMin})
+                      <span className="mx-1.5 text-red-300">|</span>
+                      Stok Gudang Besar: <span className="font-bold font-mono text-emerald-700">{item.stokGudangBesar} pcs</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {cukupDiBesar ? (
+                      <button
+                        onClick={() => {
+                          setTransferTarget(item);
+                          setTransferJumlah(Math.min(item.stokMin - item.stokGudangPacking, item.stokGudangBesar) > 0 ? Math.min(item.stokMin - item.stokGudangPacking, item.stokGudangBesar) : 1);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg border border-red-300 bg-white hover:bg-red-100/50 px-2.5 py-1.5 font-medium text-red-700 transition-colors shadow-sm"
+                      >
+                        <Zap className="h-3 w-3" />
+                        Transfer Stok
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/produksi/work-order?productId=${item.productId}&variantId=${item.variantId}&jumlah=${item.stokMin * 3}`}
+                        className="flex items-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 px-2.5 py-1.5 font-medium text-white transition-colors shadow-sm"
+                      >
+                        <Package className="h-3 w-3" />
+                        Buat Work Order
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Alert Kritis */}
       {stats.stokKritis > 0 && (
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
@@ -528,6 +644,98 @@ export default function DashboardPage() {
       {/* Status Mesin */}
       <DashboardUnitProduksiSummary />
       <DashboardTahapProduksiSummary />
+
+      {/* Transfer Dialog */}
+      {transferTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h3 className="text-sm font-semibold text-foreground">Proses Transfer Stok Cepat</h3>
+              <button
+                onClick={() => setTransferTarget(null)}
+                className="rounded-lg p-1 hover:bg-muted/50 transition-colors text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleTransferSubmit}>
+              <div className="p-6 space-y-4">
+                <div className="rounded-xl bg-muted/40 p-4 space-y-1.5 text-xs text-foreground">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Produk:</span>
+                    <span className="font-semibold text-right">{transferTarget.productName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Varian:</span>
+                    <span className="font-medium text-right">
+                      {transferTarget.warna} · {transferTarget.ukuran}
+                    </span>
+                  </div>
+                  <hr className="border-border my-1.5" />
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Stok Gudang Besar:</span>
+                    <span className="font-mono font-semibold text-emerald-600">
+                      {transferTarget.stokGudangBesar} pcs
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Stok Gudang Packing:</span>
+                    <span className="font-mono text-red-500">
+                      {transferTarget.stokGudangPacking} pcs (min. {transferTarget.stokMin})
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-1.5 text-foreground">
+                    Jumlah Transfer (pcs) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={transferTarget.stokGudangBesar}
+                    value={transferJumlah}
+                    onChange={(e) => setTransferJumlah(Math.max(1, Number(e.target.value)))}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30"
+                    required
+                  />
+                </div>
+
+                {transferError && (
+                  <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 text-red-700 p-3 text-xs">
+                    <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                    <span>{transferError}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
+                <button
+                  type="button"
+                  onClick={() => setTransferTarget(null)}
+                  className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted/50 text-foreground"
+                  disabled={transferring}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={transferring}
+                  className="flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2 text-sm font-medium text-white hover:bg-[#004a6e] disabled:opacity-60"
+                >
+                  {transferring ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                  Kirim Transfer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

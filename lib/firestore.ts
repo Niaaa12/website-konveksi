@@ -456,7 +456,8 @@ export interface ProductVariant {
   namaWarna: string;
   kodeHex: string; // kode warna HEX, mis. "#E8C4C4"
   ukuran: UkuranHijab; // ukuran spesifik varian ini
-  stokJadi: number;
+  stokJadi: number; // stok di Gudang Besar
+  stokGudangPacking?: number; // stok di Gudang Packing
   stokMin: number; // default 20 jika tidak diisi
 }
 
@@ -1032,13 +1033,34 @@ export async function updateTahapProduksi(
       // Kalau tahap terakhir (packing) selesai, update status WO jadi selesai
       if (tahapId === "packing") {
         const woRef = doc(db, "workOrders", woId);
-        tx.update(woRef, {
-          status: "selesai",
-          jumlahSelesai: update.jumlahSelesai,
-          jumlahCacat: update.jumlahCacat,
-          tanggalSelesai: new Date().toISOString().slice(0, 10),
-          updatedAt: serverTimestamp(),
-        });
+        const woSnap = await tx.get(woRef);
+        if (woSnap.exists()) {
+          const wo = woSnap.data() as WorkOrder;
+          tx.update(woRef, {
+            status: "selesai",
+            jumlahSelesai: update.jumlahSelesai,
+            jumlahCacat: update.jumlahCacat,
+            tanggalSelesai: new Date().toISOString().slice(0, 10),
+            updatedAt: serverTimestamp(),
+          });
+
+          // Otomatis tambah stok produk jadi di Gudang Besar (stokJadi)
+          if (wo.productId && wo.variantId) {
+            const variantRef = doc(
+              db,
+              `products/${wo.productId}/variants/${wo.variantId}`
+            );
+            const variantSnap = await tx.get(variantRef);
+            if (variantSnap.exists()) {
+              const variantData = variantSnap.data() as ProductVariant;
+              const stokLama = variantData.stokJadi ?? 0;
+              tx.update(variantRef, {
+                stokJadi: stokLama + update.jumlahSelesai,
+                updatedAt: serverTimestamp(),
+              });
+            }
+          }
+        }
       }
     }
   });
@@ -1182,4 +1204,189 @@ export async function getOperators(): Promise<AppUser[]> {
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() } as AppUser))
     .filter((u) => u.aktif && (u.role === "produksi" || u.role === "manajer"));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WAREHOUSE TRANSFERS (TRANSFER GUDANG) & PRODUCT OUTFLOWS (PENGELUARAN)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface WarehouseTransfer {
+  id?: string;
+  nomorTransfer: string;
+  productId: string;
+  productName: string;
+  variantId: string;
+  warna: string;
+  ukuran: string;
+  jumlah: number;
+  tanggalTransfer: string;
+  catatan?: string;
+  dibuatOleh: string;
+  createdAt?: Date;
+}
+
+export interface ProductOutflow {
+  id?: string;
+  nomorOutflow: string;
+  productId: string;
+  productName: string;
+  variantId: string;
+  warna: string;
+  ukuran: string;
+  jumlah: number;
+  tanggalOutflow: string;
+  pelanggan?: string;
+  catatan?: string;
+  dibuatOleh: string;
+  createdAt?: Date;
+}
+
+/** Mengambil data log transfer gudang */
+export async function getWarehouseTransfers(): Promise<WarehouseTransfer[]> {
+  const snap = await getDocs(
+    query(collection(db, "warehouseTransfers"), orderBy("createdAt", "desc"))
+  );
+  return snap.docs.map(
+    (d) =>
+      ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate
+          ? d.data().createdAt.toDate()
+          : d.data().createdAt,
+      } as WarehouseTransfer)
+  );
+}
+
+/** Membuat data transfer gudang dan mengupdate stok secara atomik */
+export async function createWarehouseTransfer(
+  data: Omit<WarehouseTransfer, "id" | "createdAt">
+): Promise<string> {
+  let refId = "";
+  await runTransaction(db, async (tx) => {
+    const variantRef = doc(
+      db,
+      `products/${data.productId}/variants/${data.variantId}`
+    );
+    const variantSnap = await tx.get(variantRef);
+    if (!variantSnap.exists()) {
+      throw new Error("Varian produk tidak ditemukan.");
+    }
+
+    const variant = variantSnap.data() as ProductVariant;
+    const stokBesarLama = variant.stokJadi ?? 0;
+    const stokPackingLama = variant.stokGudangPacking ?? 0;
+
+    if (stokBesarLama < data.jumlah) {
+      throw new Error(
+        `Stok Gudang Besar tidak mencukupi. Tersedia: ${stokBesarLama} pcs.`
+      );
+    }
+
+    // Update stok
+    tx.update(variantRef, {
+      stokJadi: stokBesarLama - data.jumlah,
+      stokGudangPacking: stokPackingLama + data.jumlah,
+      updatedAt: serverTimestamp(),
+    });
+
+    // Simpan log transfer
+    const trfRef = doc(collection(db, "warehouseTransfers"));
+    refId = trfRef.id;
+    tx.set(trfRef, {
+      ...data,
+      createdAt: serverTimestamp(),
+    });
+  });
+  return refId;
+}
+
+/** Mengambil data log pengeluaran produk */
+export async function getProductOutflows(): Promise<ProductOutflow[]> {
+  const snap = await getDocs(
+    query(collection(db, "productOutflows"), orderBy("createdAt", "desc"))
+  );
+  return snap.docs.map(
+    (d) =>
+      ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate
+          ? d.data().createdAt.toDate()
+          : d.data().createdAt,
+      } as ProductOutflow)
+  );
+}
+
+/** Membuat log pengeluaran produk dan mengurangi stok packing secara atomik */
+export async function createProductOutflow(
+  data: Omit<ProductOutflow, "id" | "createdAt">
+): Promise<string> {
+  let refId = "";
+  await runTransaction(db, async (tx) => {
+    const variantRef = doc(
+      db,
+      `products/${data.productId}/variants/${data.variantId}`
+    );
+    const variantSnap = await tx.get(variantRef);
+    if (!variantSnap.exists()) {
+      throw new Error("Varian produk tidak ditemukan.");
+    }
+
+    const variant = variantSnap.data() as ProductVariant;
+    const stokPackingLama = variant.stokGudangPacking ?? 0;
+
+    if (stokPackingLama < data.jumlah) {
+      throw new Error(
+        `Stok Gudang Packing tidak mencukupi. Tersedia: ${stokPackingLama} pcs.`
+      );
+    }
+
+    // Update stok
+    tx.update(variantRef, {
+      stokGudangPacking: stokPackingLama - data.jumlah,
+      updatedAt: serverTimestamp(),
+    });
+
+    // Simpan log pengeluaran
+    const outRef = doc(collection(db, "productOutflows"));
+    refId = outRef.id;
+    tx.set(outRef, {
+      ...data,
+      createdAt: serverTimestamp(),
+    });
+  });
+  return refId;
+}
+
+/** Mengambil semua varian produk jadi yang stok packing-nya berada di bawah minimum */
+export async function getKritisPackingVariants(): Promise<
+  Array<{
+    productId: string;
+    productName: string;
+    variantId: string;
+    warna: string;
+    ukuran: string;
+    stokGudangBesar: number;
+    stokGudangPacking: number;
+    stokMin: number;
+  }>
+> {
+  const products = await getProducts(undefined, true);
+  const allVariants = await Promise.all(
+    products.map(async (p) => {
+      const vars = await getProductVariants(p.id!);
+      return vars.map((v) => ({
+        productId: p.id!,
+        productName: p.nama,
+        variantId: v.id!,
+        warna: v.namaWarna,
+        ukuran: v.ukuran,
+        stokGudangBesar: v.stokJadi ?? 0,
+        stokGudangPacking: v.stokGudangPacking ?? 0,
+        stokMin: v.stokMin ?? 20,
+      }));
+    })
+  );
+  return allVariants.flat().filter((v) => v.stokGudangPacking < v.stokMin);
 }

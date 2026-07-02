@@ -51,12 +51,12 @@ export default function LoginPage() {
     msg: string;
   } | null>(null);
 
-  // Jika sudah login, redirect langsung
-  useEffect(() => {
-    if (!loading && user) {
-      router.replace(roleRedirect[user.role] ?? "/dashboard");
-    }
-  }, [user, loading, router]);
+  // // Jika sudah login, redirect langsung
+  // useEffect(() => {
+  //   if (!loading && user) {
+  //     router.replace(roleRedirect[user.role] ?? "/dashboard");
+  //   }
+  // }, [user, loading, router]);
 
   // ── Handler Login ───────────────────────────────────────────────────
   async function handleLogin(e: React.FormEvent) {
@@ -81,6 +81,19 @@ export default function LoginPage() {
         type: "ok",
         msg: `Selamat datang, ${result.user.nama}! Mengalihkan...`,
       });
+
+      // Set cookie __session agar middleware dapat memverifikasi sesi.
+      // Jika "Ingat saya" dicentang, cookie bertahan 30 hari; jika tidak, session-only.
+      const maxAge = remember ? 60 * 60 * 24 * 30 : undefined;
+      document.cookie = [
+        `__session=${result.user.uid}`,
+        "path=/",
+        "SameSite=Strict",
+        maxAge ? `max-age=${maxAge}` : "",
+      ]
+        .filter(Boolean)
+        .join("; ");
+
       setTimeout(() => {
         router.replace(roleRedirect[result.user!.role] ?? "/dashboard");
       }, 800);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   getWorkOrders,
   createWorkOrder,
@@ -82,7 +83,7 @@ function VarianBadge({
   );
 }
 
-export default function WorkOrderPage() {
+function WorkOrderPageContent() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [units, setUnits] = useState<ProductionUnit[]>([]);
@@ -100,6 +101,34 @@ export default function WorkOrderPage() {
   const [editWO, setEditWO] = useState<WorkOrder | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<WorkOrder | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const searchParams = useSearchParams();
+  const paramProductId = searchParams.get("productId");
+  const paramVariantId = searchParams.get("variantId");
+  const paramJumlah = searchParams.get("jumlah");
+
+  const prefillData = useMemo(() => {
+    if (paramProductId && paramVariantId) {
+      return {
+        productId: paramProductId,
+        variantId: paramVariantId,
+        jumlahTarget: Number(paramJumlah || 50),
+        nomor: `WO-${Date.now().toString().slice(-6)}`,
+        tanggalMulai: new Date().toISOString().slice(0, 10),
+        tanggalTarget: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10),
+        catatan: "Dibuat otomatis dari peringatan stok Gudang Packing.",
+      };
+    }
+    return undefined;
+  }, [paramProductId, paramVariantId, paramJumlah]);
+
+  useEffect(() => {
+    if (prefillData) {
+      setEditWO("new");
+    }
+  }, [prefillData]);
 
   async function loadData() {
     setLoading(true);
@@ -501,6 +530,7 @@ export default function WorkOrderPage() {
       {editWO && (
         <WOFormModal
           initial={editWO === "new" ? undefined : editWO}
+          prefill={editWO === "new" ? prefillData : undefined}
           products={products}
           units={units}
           operators={operators}
@@ -517,5 +547,19 @@ export default function WorkOrderPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function WorkOrderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-[60vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#003247]" />
+        </div>
+      }
+    >
+      <WorkOrderPageContent />
+    </Suspense>
   );
 }

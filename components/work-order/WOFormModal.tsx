@@ -62,6 +62,7 @@ function StokBadge({ stok, stokMin }: { stok: number; stokMin: number }) {
 
 export function WOFormModal({
   initial,
+  prefill,
   products,
   units,
   operators,
@@ -69,6 +70,7 @@ export function WOFormModal({
   onSave,
 }: {
   initial?: WorkOrder;
+  prefill?: Partial<WorkOrder>;
   products: Product[];
   units: ProductionUnit[];
   operators: AppUser[];
@@ -81,24 +83,45 @@ export function WOFormModal({
   // variantId di form: ID varian final (warna + ukuran terpilih)
   const [selectedWarnaName, setSelectedWarnaName] = useState<string>("");
 
-  const [form, setForm] = useState<WOFormData>(
-    initial
-      ? {
-          nomor: initial.nomor,
-          productId: initial.productId,
-          variantId: initial.variantId ?? "",
-          ukuranId: "",
-          jumlahTarget: initial.jumlahTarget,
-          status: initial.status,
-          prioritas: initial.prioritas,
-          unitId: initial.unitId,
-          operatorId: initial.operatorId ?? "",
-          tanggalMulai: initial.tanggalMulai,
-          tanggalTarget: initial.tanggalTarget,
-          catatan: initial.catatan,
-        }
-      : { ...EMPTY_WO, nomor: `WO-${Date.now().toString().slice(-6)}` }
-  );
+  const [form, setForm] = useState<WOFormData>(() => {
+    if (initial) {
+      return {
+        nomor: initial.nomor,
+        productId: initial.productId,
+        variantId: initial.variantId ?? "",
+        ukuranId: "",
+        jumlahTarget: initial.jumlahTarget,
+        status: initial.status,
+        prioritas: initial.prioritas,
+        unitId: initial.unitId,
+        operatorId: initial.operatorId ?? "",
+        tanggalMulai: initial.tanggalMulai,
+        tanggalTarget: initial.tanggalTarget,
+        catatan: initial.catatan,
+      };
+    } else if (prefill) {
+      return {
+        ...EMPTY_WO,
+        nomor: prefill.nomor ?? `WO-${Date.now().toString().slice(-6)}`,
+        productId: prefill.productId ?? "",
+        variantId: prefill.variantId ?? "",
+        ukuranId: "",
+        jumlahTarget: prefill.jumlahTarget ?? 0,
+        status: "dijadwalkan",
+        prioritas: "normal",
+        unitId: "",
+        operatorId: "",
+        tanggalMulai: prefill.tanggalMulai ?? "",
+        tanggalTarget: prefill.tanggalTarget ?? "",
+        catatan: prefill.catatan ?? "",
+      };
+    } else {
+      return {
+        ...EMPTY_WO,
+        nomor: `WO-${Date.now().toString().slice(-6)}`,
+      };
+    }
+  });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");

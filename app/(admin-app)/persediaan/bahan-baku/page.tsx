@@ -336,7 +336,7 @@ export default function BahanBakuPage() {
       try {
         const mats = await getMaterials();
         const mapped = mats.map(m => ({
-          id: m.id || "",
+          id: m.kode || "",
           nama: m.nama,
           kategori: m.kategoriId.startsWith("cat-") ? m.kategoriId.replace("cat-", "") : m.kategoriId,
           satuan: m.satuan,
@@ -663,14 +663,14 @@ export default function BahanBakuPage() {
         initial={
           modalEdit
             ? {
-                nama: modalEdit.nama,
-                kategori: modalEdit.kategori,
-                satuan: modalEdit.satuan,
-                stok: String(modalEdit.stok),
-                stokMin: String(modalEdit.stokMin),
-                hargaSatuan: String(modalEdit.hargaSatuan),
-                keterangan: modalEdit.keterangan,
-              }
+              nama: modalEdit.nama,
+              kategori: modalEdit.kategori,
+              satuan: modalEdit.satuan,
+              stok: String(modalEdit.stok),
+              stokMin: String(modalEdit.stokMin),
+              hargaSatuan: String(modalEdit.hargaSatuan),
+              keterangan: modalEdit.keterangan,
+            }
             : undefined
         }
         mode="edit"

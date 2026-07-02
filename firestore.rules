@@ -62,26 +62,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // Apakah operator WO adalah user yang sedang login?
-    function isWoOperator(woData) {
-      return isSignedIn() && woData.operatorId == request.auth.uid;
-    }
-
-    // Validasi field yang TIDAK boleh diubah oleh staf produksi saat update WO
-    // Mereka hanya boleh update: jumlahSelesai, jumlahCacat, status, updatedAt
-    function isProgressUpdateOnly() {
-      let allowed = ['jumlahSelesai', 'jumlahCacat', 'status', 'updatedAt'];
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
-    }
-
-    // Validasi: jumlah tidak boleh melebihi target
-    function isValidProgress() {
-      return request.resource.data.jumlahSelesai <= request.resource.data.jumlahTarget
-          && request.resource.data.jumlahCacat   <= request.resource.data.jumlahTarget
-          && request.resource.data.jumlahSelesai >= 0
-          && request.resource.data.jumlahCacat   >= 0;
-    }
-
     // ────────────────────────────────────────────────────────────────────────
     // USERS
     // Setiap user hanya bisa baca & edit profilnya sendiri.
@@ -134,7 +114,8 @@ service cloud.firestore {
       // Varian warna produk
       match /variants/{variantId} {
         allow read:           if isAnyStaff();
-        allow create, update: if isManajer();
+        allow create:         if isManajer();
+        allow update:         if isAnyStaff();
         allow delete:         if isAdmin();
       }
 
@@ -166,16 +147,19 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /workOrders/{woId} {
       allow read:   if isAnyStaff();
-      allow create: if isManajer();
+      allow create: if isProduksi();
       allow delete: if isAdmin();
 
-      // Update: manajer/admin bebas update semua field
-      // Staf produksi: hanya bisa update jika dia operatornya DAN hanya field progress
-      allow update: if isManajer()
-                    || (isProduksi()
-                        && isWoOperator(resource.data)
-                        && isProgressUpdateOnly()
-                        && isValidProgress());
+      // Update: manajer/admin/produksi bebas update semua field
+      allow update: if isProduksi();
+
+      // Tahap produksi — staf produksi & manajer bisa baca, create, dan update
+      match /tahapProduksi/{tahapId} {
+        allow read:   if isAnyStaff();
+        allow create: if isProduksi();
+        allow update: if isProduksi();
+        allow delete: if isAdmin();
+      }
 
       // Progress logs — staf produksi HANYA bisa tambah (create), tidak bisa edit/hapus
       // Ini menjaga integritas audit trail
@@ -242,6 +226,26 @@ service cloud.firestore {
         allow create, update: if isGudang();
         allow delete:         if isAdmin();
       }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // WAREHOUSE TRANSFERS (transfer produk Gudang Besar -> Gudang Packing)
+    // ────────────────────────────────────────────────────────────────────────
+    match /warehouseTransfers/{id} {
+      allow read:   if isAnyStaff();
+      allow create: if isAnyStaff();
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // PRODUCT OUTFLOWS (pengeluaran produk jadi Gudang Packing)
+    // ────────────────────────────────────────────────────────────────────────
+    match /productOutflows/{id} {
+      allow read:   if isAnyStaff();
+      allow create: if isAnyStaff();
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     // ────────────────────────────────────────────────────────────────────────

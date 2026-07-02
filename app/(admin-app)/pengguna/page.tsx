@@ -15,8 +15,10 @@ import {
   getAuth,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  signOut,
 } from "firebase/auth";
-import { db } from "@/lib/firebase";
+import { initializeApp, deleteApp } from "firebase/app";
+import { app as firebaseApp, db } from "@/lib/firebase";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
@@ -312,13 +314,13 @@ function FormModal({
   const [form, setForm] = useState<FormData>(
     initial
       ? {
-          nama: initial.nama,
-          email: initial.email,
-          jabatan: initial.jabatan,
-          role: initial.role,
-          aktif: initial.aktif,
-          password: "",
-        }
+        nama: initial.nama,
+        email: initial.email,
+        jabatan: initial.jabatan,
+        role: initial.role,
+        aktif: initial.aktif,
+        password: "",
+      }
       : { ...EMPTY_FORM }
   );
   const [showPass, setShowPass] = useState(false);
@@ -637,7 +639,7 @@ export default function PenggunaPage() {
   // Simpan pengguna (tambah / edit)
   async function handleSave(data: FormData, uid?: string) {
     if (uid) {
-      // Edit: update Firestore saja
+      // Edit: update Firestore saja (tidak menyentuh Firebase Auth)
       await updateUser(uid, {
         nama: data.nama,
         jabatan: data.jabatan,
@@ -645,22 +647,40 @@ export default function PenggunaPage() {
         aktif: data.aktif,
       });
     } else {
-      // Tambah: buat di Firebase Auth lalu simpan ke Firestore
-      const auth = getAuth();
-      const cred = await createUserWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
+      // ─── PENTING ─────────────────────────────────────────────────────────
+      // createUserWithEmailAndPassword pada primary Auth instance otomatis
+      // mengganti sesi admin dengan user baru (onAuthStateChanged terpicu).
+      // Solusi: gunakan secondary Firebase App instance yang terpisah,
+      // sehingga primary Auth (yang dibaca AuthContext & Topbar) tidak berubah.
+      // ─────────────────────────────────────────────────────────────────────
+      const secondaryApp = initializeApp(
+        firebaseApp.options,
+        `secondary-${Date.now()}`
       );
-      await setDoc(doc(db, "users", cred.user.uid), {
-        email: data.email,
-        nama: data.nama,
-        role: data.role,
-        jabatan: data.jabatan,
-        aktif: true,
-        lastLogin: null,
-        createdAt: serverTimestamp(),
-      });
+      const secondaryAuth = getAuth(secondaryApp);
+
+      try {
+        const cred = await createUserWithEmailAndPassword(
+          secondaryAuth,
+          data.email,
+          data.password
+        );
+
+        // Simpan profil ke Firestore menggunakan db dari primary app
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email: data.email,
+          nama: data.nama,
+          role: data.role,
+          jabatan: data.jabatan,
+          aktif: true,
+          lastLogin: null,
+          createdAt: serverTimestamp(),
+        });
+      } finally {
+        // Bersihkan: sign-out dari secondary app dan hapus instance-nya
+        await signOut(secondaryAuth).catch(() => {});
+        await deleteApp(secondaryApp).catch(() => {});
+      }
     }
     await loadUsers();
   }
