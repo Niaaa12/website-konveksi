@@ -186,10 +186,11 @@ export function WOFormModal({
       !form.nomor ||
       !form.productId ||
       !form.unitId ||
+      !form.operatorId ||
       !form.tanggalMulai ||
       !form.tanggalTarget
     ) {
-      setError("Nomor WO, produk, unit, dan tanggal wajib diisi.");
+      setError("Nomor WO, produk, unit, operator, dan tanggal wajib diisi.");
       return;
     }
     if (form.tanggalTarget < form.tanggalMulai) {
@@ -573,7 +574,7 @@ export function WOFormModal({
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-medium">
-                  Operator / PIC
+                  Operator / PIC <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={form.operatorId}

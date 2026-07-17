@@ -314,13 +314,13 @@ function FormModal({
   const [form, setForm] = useState<FormData>(
     initial
       ? {
-        nama: initial.nama,
-        email: initial.email,
-        jabatan: initial.jabatan,
-        role: initial.role,
-        aktif: initial.aktif,
-        password: "",
-      }
+          nama: initial.nama,
+          email: initial.email,
+          jabatan: initial.jabatan,
+          role: initial.role,
+          aktif: initial.aktif,
+          password: "",
+        }
       : { ...EMPTY_FORM }
   );
   const [showPass, setShowPass] = useState(false);

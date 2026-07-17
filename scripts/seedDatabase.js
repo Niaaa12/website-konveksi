@@ -76,6 +76,8 @@ const USERS = [
   },
 ];
 
+const emailToUid = {};
+
 async function seedUsers() {
   console.log("\n👤 Seeding: users (Auth + Firestore)");
   for (const u of USERS) {
@@ -93,6 +95,7 @@ async function seedUsers() {
         });
         console.log(`  ✓ Auth dibuat: ${u.email}`);
       }
+      emailToUid[u.email] = userRecord.uid;
       await upsert("users", userRecord.uid, {
         email: u.email,
         nama: u.nama,
@@ -1235,20 +1238,25 @@ async function seedWorkOrders() {
   console.log("\n📂 Seeding: workOrders + progressLogs");
   for (const wo of WORK_ORDERS) {
     const { id, progressLogs, ...data } = wo;
+    const resolvedOperatorId = emailToUid[data.operatorId] || data.operatorId;
+    const resolvedDibuatOleh = emailToUid[data.dibuatOleh] || data.dibuatOleh;
     await upsert("workOrders", id, {
       ...data,
+      operatorId: resolvedOperatorId,
+      dibuatOleh: resolvedDibuatOleh,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
     for (const log of progressLogs) {
       const { id: lid, createdAt, ...ldata } = log;
+      const resolvedDicatatOleh = emailToUid[ldata.dicatatOleh] || ldata.dicatatOleh || null;
       await db
         .collection(`workOrders/${id}/progressLogs`)
         .doc(lid)
         .set(
           {
             ...ldata,
-            dicatatOleh: null,
+            dicatatOleh: resolvedDicatatOleh,
             createdAt: admin.firestore.Timestamp.fromDate(createdAt),
           },
           { merge: true }

@@ -18,16 +18,16 @@ const roles: {
   sub: string;
   Icon: React.ComponentType<any>;
 }[] = [
-  { key: "admin", label: "Admin", sub: "Full akses", Icon: ShieldCheck },
-  { key: "produksi", label: "Produksi", sub: "WO & mesin", Icon: Scissors },
-  { key: "gudang", label: "Gudang", sub: "Persediaan", Icon: Package },
-  {
-    key: "manajer",
-    label: "Manajer",
-    sub: "Laporan & KPI",
-    Icon: LayoutDashboard,
-  },
-];
+    { key: "admin", label: "Admin", sub: "Full akses", Icon: ShieldCheck },
+    { key: "produksi", label: "Produksi", sub: "WO & mesin", Icon: Scissors },
+    { key: "gudang", label: "Gudang", sub: "Persediaan", Icon: Package },
+    {
+      key: "manajer",
+      label: "Manajer",
+      sub: "Laporan & KPI",
+      Icon: LayoutDashboard,
+    },
+  ];
 
 const roleRedirect: Record<UserRole, string> = {
   admin: "/dashboard",
@@ -140,10 +140,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#E5EEE4]  flex items-center justify-center p-4">
-      <div className="w-full max-w-5xl grid lg:grid-cols-[42%_58%] rounded-2xl overflow-hidden border border-border shadow-xl">
+      <div className="w-full max-w-4xl grid lg:grid-cols-[42%_58%] rounded-2xl overflow-hidden border border-border shadow-xl">
         {/* ── PANEL KIRI ── */}
         <div
-          className="hidden lg:flex flex-col gap-10 p-9 relative overflow-hidden"
+          className="hidden lg:flex flex-col gap-9 p-9 relative overflow-hidden"
           style={{ background: "#003247" }}
         >
           {/* Decorative glows */}
@@ -290,7 +290,7 @@ export default function LoginPage() {
           </p>
 
           {/* Role selector — hanya saat login */}
-          {mode === "login" && (
+          {/* {mode === "login" && (
             <div className="mb-6">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
                 Masuk sebagai
@@ -327,7 +327,7 @@ export default function LoginPage() {
                 Role ditentukan otomatis berdasarkan akun Anda di sistem.
               </p>
             </div>
-          )}
+          )} */}
 
           {/* Alert */}
           {alert && (
