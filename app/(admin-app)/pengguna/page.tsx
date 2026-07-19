@@ -41,13 +41,14 @@ import {
   Mail,
   MoreVertical,
   RefreshCw,
+  UserCog,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TIPE
 // ─────────────────────────────────────────────────────────────────────────────
 
-type UserRole = "admin" | "manajer" | "produksi" | "gudang";
+type UserRole = "admin" | "manajer" | "produksi" | "gudang" | "picproduksi";
 
 interface AppUser {
   id: string; // = Firebase Auth UID
@@ -96,6 +97,12 @@ const ROLE_CONFIG: Record<
     color: "text-amber-700",
     bg: "bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400",
     icon: Warehouse,
+  },
+  picproduksi: {
+    label: "PIC Produksi",
+    color: "text-orange-700",
+    bg: "bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400",
+    icon: UserCog,
   },
 };
 
@@ -178,6 +185,7 @@ function getAvatarBg(role: UserRole) {
     manajer: "bg-violet-500",
     produksi: "bg-blue-500",
     gudang: "bg-amber-500",
+    picproduksi: "bg-orange-500",
   };
   return map[role];
 }
@@ -515,13 +523,10 @@ function FormModal({
                       <div>
                         <p
                           className={cn(
-                            "text-xs font-medium capitalize",
+                            "text-xs font-medium",
                             form.role === key ? "text-[#003247]" : ""
                           )}
                         >
-                          {key}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground leading-tight">
                           {cfg.label}
                         </p>
                       </div>
@@ -634,7 +639,7 @@ export default function PenggunaPage() {
     }
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
-  }, []);
+  }, [openMenu]);
 
   // Simpan pengguna (tambah / edit)
   async function handleSave(data: FormData, uid?: string) {
@@ -728,6 +733,7 @@ export default function PenggunaPage() {
     manajer: users.filter((u) => u.role === "manajer").length,
     produksi: users.filter((u) => u.role === "produksi").length,
     gudang: users.filter((u) => u.role === "gudang").length,
+    picproduksi: users.filter((u) => u.role === "picproduksi").length,
   };
 
   if (loading) {

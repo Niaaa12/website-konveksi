@@ -11,6 +11,7 @@
 //   manajer  — baca semua, buat & edit WO, tidak bisa hapus
 //   produksi — baca semua, update progress WO sendiri, catat pemakaian bahan
 //   gudang   — baca semua, kelola penerimaan & transaksi persediaan
+//   picproduksi — lihat dashboard, baca WO, jadwal produksi, dan unit produksi, serta update progress WO sendiri
 // ─────────────────────────────────────────────────────────────────────────────
 
 rules_version = '2';
@@ -51,6 +52,10 @@ service cloud.firestore {
 
     function isGudang() {
       return isSignedIn() && isAktif() && getRole() in ['admin', 'manajer', 'gudang'];
+    }
+
+    function isPICProduksi() {
+      return isSignedIn() && isAktif() && getRole() in ['admin', 'manajer', 'picproduksi'];
     }
 
     function isAnyStaff() {

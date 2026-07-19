@@ -20,6 +20,7 @@ interface AuthContextValue {
   isManajer: boolean;
   isProduksi: boolean;
   isGudang: boolean;
+  isPICProduksi: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -30,6 +31,7 @@ const AuthContext = createContext<AuthContextValue>({
   isManajer: false,
   isProduksi: false,
   isGudang: false,
+  isPICProduksi: false,
 });
 
 // ── Provider ──────────────────────────────────────────────────────────
@@ -64,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isManajer: user?.role === "manajer",
     isProduksi: user?.role === "produksi",
     isGudang: user?.role === "gudang",
+    isPICProduksi: user?.role === "picproduksi",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -11,7 +11,7 @@ import { auth, db } from "./firebase";
 
 // ── Tipe Data ────────────────────────────────────────────────────────
 
-export type UserRole = "admin" | "produksi" | "gudang" | "manajer";
+export type UserRole = "admin" | "produksi" | "gudang" | "manajer" | "picproduksi";
 
 export interface UserProfile {
   uid: string;

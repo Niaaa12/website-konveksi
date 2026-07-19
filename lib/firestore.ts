@@ -1194,7 +1194,7 @@ export interface AppUser {
   id?: string;
   email: string;
   nama: string;
-  role: "admin" | "manajer" | "produksi" | "gudang";
+  role: "admin" | "manajer" | "produksi" | "gudang" | "picproduksi";
   jabatan: string;
   aktif: boolean;
 }
@@ -1203,7 +1203,13 @@ export async function getOperators(): Promise<AppUser[]> {
   const snap = await getDocs(collection(db, "users"));
   return snap.docs
     .map((d) => ({ id: d.id, ...d.data() } as AppUser))
-    .filter((u) => u.aktif && (u.role === "produksi" || u.role === "manajer"));
+    .filter(
+      (u) =>
+        u.aktif &&
+        (u.role === "produksi" ||
+          u.role === "manajer" ||
+          u.role === "picproduksi")
+    );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
