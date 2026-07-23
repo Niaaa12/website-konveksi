@@ -1,6 +1,6 @@
 "use client";
 
-import { AuthGuard } from "@/components/auth/AuthGuard";
+import AuthGuard from "@/components/auth/AuthGuard";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/Topbar";
 import { usePathname } from "next/navigation";
@@ -31,7 +31,8 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   },
   "/persediaan/transfer": {
     title: "Transfer Gudang",
-    subtitle: "Catat dan pantau perpindahan stok dari Gudang Besar ke Gudang Packing",
+    subtitle:
+      "Catat dan pantau perpindahan stok dari Gudang Besar ke Gudang Packing",
   },
   "/persediaan/pengeluaran": {
     title: "Pengeluaran Produk Jadi",

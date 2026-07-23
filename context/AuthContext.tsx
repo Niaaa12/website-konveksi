@@ -64,8 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     isAdmin: user?.role === "admin",
     isManajer: user?.role === "manajer",
-    isProduksi: user?.role === "produksi",
-    isGudang: user?.role === "gudang",
+    isProduksi: user?.role === "kepalaTimProduksi",
+    isGudang: user?.role === "kepalaGudang",
     isPICProduksi: user?.role === "picproduksi",
   };
 

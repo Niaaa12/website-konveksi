@@ -11,7 +11,34 @@ import { auth, db } from "./firebase";
 
 // ── Tipe Data ────────────────────────────────────────────────────────
 
-export type UserRole = "admin" | "produksi" | "gudang" | "manajer" | "picproduksi";
+export type UserRole = "admin" | "kepalaTimProduksi" | "kepalaGudang" | "manajer" | "picproduksi";
+
+// Peta halaman → role yang boleh akses
+// Dipakai oleh middleware.ts dan AuthGuard
+export const HALAMAN_AKSES: Record<string, UserRole[]> = {
+  "/dashboard": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
+  "/work-order": ["admin", "manajer", "kepalaTimProduksi"],
+  "/jadwal": ["admin", "manajer", "kepalaTimProduksi"],
+  "/unitproduksi": ["admin", "manajer", "kepalaTimProduksi"],
+  "/bahan-baku": ["admin", "kepalaGudang"],
+  "/produk-jadi": ["admin", "kepalaGudang"],
+  "/transfer": ["admin", "kepalaGudang"],
+  "/pengeluaran": ["admin", "kepalaGudang"],
+  "/progress": ["admin", "manajer", "kepalaTimProduksi", "picproduksi"],
+  "/katalogproduk": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
+  "/laporan": ["admin", "manajer", "kepalaGudang"],
+  "/pengguna": ["admin"],
+  "/pengaturan": ["admin", "manajer"],
+};
+
+// Halaman awal setelah login per role
+export const HALAMAN_AWAL: Record<UserRole, string> = {
+  admin:            "/dashboard",
+  manajer:          "/dashboard",
+  kepalaTimProduksi:  "/produksi/work-order",
+  picproduksi:     "/progress",     // langsung ke progress, bukan dashboard
+  kepalaGudang:    "/dashboard",
+};
 
 export interface UserProfile {
   uid: string;

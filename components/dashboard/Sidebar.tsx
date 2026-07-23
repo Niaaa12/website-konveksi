@@ -1,10 +1,13 @@
 "use client";
 
 import {
+  ArrowLeftRight,
+  BarChart2,
   BarChart3,
   Bell,
   BookOpen,
   Boxes,
+  Calendar,
   ChevronRight,
   ClipboardCheck,
   ClipboardList,
@@ -12,6 +15,8 @@ import {
   LayoutDashboard,
   Package,
   Settings,
+  ShoppingCart,
+  Tag,
   Truck,
   Users,
   X,
@@ -20,6 +25,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { SidebarStokKritisSection } from "@/components/alert/SidebarStokKritisSection";
+import { HALAMAN_AKSES, type UserRole } from "@/lib/auth";
+import { useEffect, useState } from "react";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 const menuItems = [
   {
@@ -36,7 +46,7 @@ const menuItems = [
         href: "/produksi/work-order",
         icon: ClipboardList,
       },
-      { label: "Jadwal Produksi", href: "/produksi/jadwal", icon: Factory },
+      { label: "Jadwal Produksi", href: "/produksi/jadwal", icon: Calendar },
       { label: "Unit Produksi", href: "/produksi/unitproduksi", icon: Factory },
     ],
   },
@@ -47,7 +57,11 @@ const menuItems = [
       { label: "Bahan Baku", href: "/persediaan/bahan-baku", icon: Boxes },
       { label: "Produk Jadi", href: "/persediaan/produk-jadi", icon: Package },
       { label: "Transfer Gudang", href: "/persediaan/transfer", icon: Truck },
-      { label: "Pengeluaran Produk", href: "/persediaan/pengeluaran", icon: Package },
+      {
+        label: "Pengeluaran Produk",
+        href: "/persediaan/pengeluaran",
+        icon: Package,
+      },
     ],
   },
   { label: "Progress Saya", href: "/progress", icon: ClipboardCheck },
@@ -80,7 +94,36 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
 
+
+  useEffect(() => {
+    const auth = getAuth();
+
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+
+      const snap = await getDoc(doc(db, "users", user.uid));
+
+      setUserRole(snap.data()?.role as UserRole);
+    });
+
+    return () => unsub();
+  }, []);
+  const menuTersedia = menuItems.filter((item) => {
+    if (item.children) {
+      item.children = item.children.filter((child) => {
+        const role = HALAMAN_AKSES[child.href];
+        return !role || role.includes(userRole!);
+      });
+
+      return item.children.length > 0;
+    }
+
+    const role = HALAMAN_AKSES[item.href];
+    return !role || role.includes(userRole!);
+  });
+  
   return (
     <>
       {open && (
@@ -122,7 +165,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto p-3">
           <ul className="space-y-1">
-            {menuItems.map((item) =>
+            {menuTersedia.map((item) =>
               item.children ? (
                 <NavGroup key={item.label} item={item} pathname={pathname} />
               ) : (
@@ -249,3 +292,4 @@ function NavGroup({
     </li>
   );
 }
+

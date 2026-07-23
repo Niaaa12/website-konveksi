@@ -81,7 +81,7 @@ export function isRoleAllowed(
 
 // ── Daftar Semua Role ─────────────────────────────────────────────────────
 
-export const ALL_ROLES: UserRole[] = ["admin", "manajer", "produksi", "gudang"];
+export const ALL_ROLES: UserRole[] = ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang", "picproduksi"];
 
 /**
  * Label Indonesia untuk setiap role, berguna untuk UI.
@@ -89,6 +89,7 @@ export const ALL_ROLES: UserRole[] = ["admin", "manajer", "produksi", "gudang"];
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
   manajer: "Manajer",
-  produksi: "Produksi",
-  gudang: "Gudang",
+  kepalaTimProduksi: "Kepala Tim Produksi",
+  kepalaGudang: "Kepala Gudang",
+  picproduksi: "PIC Produksi",
 };

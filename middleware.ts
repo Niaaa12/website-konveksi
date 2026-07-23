@@ -1,33 +1,31 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/login"];
+// Daftar path yang TIDAK perlu login
+const PATH_PUBLIK = ["/login", "/lupa-password"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Lewati route publik dan aset statis
-  const isPublic =
-    PUBLIC_ROUTES.some((r) => pathname.startsWith(r)) ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.includes(".");
+  // Lewati path publik
+  if (PATH_PUBLIK.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
 
-  if (isPublic) return NextResponse.next();
-
-  // Cek session cookie yang di-set setelah login berhasil
+  // Cek token session (disimpan di cookie saat login)
   const session = request.cookies.get("__session")?.value;
-
   if (!session) {
-    const loginUrl = new URL("/login", request.url);
-    // Simpan halaman tujuan agar bisa redirect balik setelah login
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+    // Belum login → paksa ke halaman login
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("redirect", pathname); // ingat halaman tujuan
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  // Jalankan middleware di semua route kecuali aset statis
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Terapkan middleware ke semua halaman kecuali aset statis
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
 };

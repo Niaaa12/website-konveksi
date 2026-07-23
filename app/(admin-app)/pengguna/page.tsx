@@ -48,7 +48,7 @@ import {
 // TIPE
 // ─────────────────────────────────────────────────────────────────────────────
 
-type UserRole = "admin" | "manajer" | "produksi" | "gudang" | "picproduksi";
+type UserRole = "admin" | "manajer" | "kepalaTimProduksi" | "kepalaGudang" | "picproduksi";
 
 interface AppUser {
   id: string; // = Firebase Auth UID
@@ -86,13 +86,13 @@ const ROLE_CONFIG: Record<
     bg: "bg-violet-100 dark:bg-violet-900/30 dark:text-violet-400",
     icon: Shield,
   },
-  produksi: {
+  kepalaTimProduksi: {
     label: "Kepala Tim Produksi",
     color: "text-blue-700",
     bg: "bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400",
     icon: Package,
   },
-  gudang: {
+  kepalaGudang: {
     label: "Kepala Gudang",
     color: "text-amber-700",
     bg: "bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400",
@@ -183,8 +183,8 @@ function getAvatarBg(role: UserRole) {
   const map: Record<UserRole, string> = {
     admin: "bg-red-500",
     manajer: "bg-violet-500",
-    produksi: "bg-blue-500",
-    gudang: "bg-amber-500",
+    kepalaTimProduksi: "bg-blue-500",
+    kepalaGudang: "bg-amber-500",
     picproduksi: "bg-orange-500",
   };
   return map[role];
@@ -304,7 +304,7 @@ const EMPTY_FORM: FormData = {
   nama: "",
   email: "",
   jabatan: "",
-  role: "produksi",
+  role: "kepalaTimProduksi",
   aktif: true,
   password: "",
 };
@@ -731,8 +731,8 @@ export default function PenggunaPage() {
     aktif: users.filter((u) => u.aktif).length,
     admin: users.filter((u) => u.role === "admin").length,
     manajer: users.filter((u) => u.role === "manajer").length,
-    produksi: users.filter((u) => u.role === "produksi").length,
-    gudang: users.filter((u) => u.role === "gudang").length,
+    produksi: users.filter((u) => u.role === "kepalaTimProduksi").length,
+    gudang: users.filter((u) => u.role === "kepalaGudang").length,
     picproduksi: users.filter((u) => u.role === "picproduksi").length,
   };
 

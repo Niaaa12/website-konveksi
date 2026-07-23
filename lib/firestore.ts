@@ -1271,7 +1271,7 @@ export interface AppUser {
   id?: string;
   email: string;
   nama: string;
-  role: "admin" | "manajer" | "produksi" | "gudang" | "picproduksi";
+  role: "admin" | "manajer" | "kepalaTimProduksi" | "kepalaGudang" | "picproduksi";
   jabatan: string;
   aktif: boolean;
 }
@@ -1283,7 +1283,7 @@ export async function getOperators(): Promise<AppUser[]> {
     .filter(
       (u) =>
         u.aktif &&
-        (u.role === "produksi" ||
+        (u.role === "kepalaTimProduksi" ||
           u.role === "manajer" ||
           u.role === "picproduksi")
     );

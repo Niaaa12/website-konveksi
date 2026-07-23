@@ -3,10 +3,24 @@
 import { useAuth } from "@/context/AuthContext";
 import { kirimResetPassword, loginWithEmail, UserRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { AlertCircle, ArrowRight, CheckCircle2, Eye, EyeOff, LayoutDashboard, Loader2, Lock, Mail, Package, Scissors, ShieldCheck } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LayoutDashboard,
+  Loader2,
+  Lock,
+  Mail,
+  Package,
+  Scissors,
+  ShieldCheck,
+  UserCog,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-
+import { HALAMAN_AWAL } from "@/lib/auth";
 
 const BRAND = "#004766";
 
@@ -18,23 +32,35 @@ const roles: {
   sub: string;
   Icon: React.ComponentType<any>;
 }[] = [
-    { key: "admin", label: "Admin", sub: "Full akses", Icon: ShieldCheck },
-    { key: "produksi", label: "Produksi", sub: "WO & mesin", Icon: Scissors },
-    { key: "gudang", label: "Gudang", sub: "Persediaan", Icon: Package },
-    {
-      key: "manajer",
-      label: "Manajer",
-      sub: "Laporan & KPI",
-      Icon: LayoutDashboard,
-    },
-  ];
+  { key: "admin", label: "Admin", sub: "Full akses", Icon: ShieldCheck },
+  {
+    key: "kepalaTimProduksi",
+    label: "Produksi",
+    sub: "WO & mesin",
+    Icon: Scissors,
+  },
+  {
+    key: "picproduksi",
+    label: "PIC Produksi",
+    sub: "Update Progress",
+    Icon: UserCog,
+  },
+  { key: "kepalaGudang", label: "Gudang", sub: "Persediaan", Icon: Package },
+  {
+    key: "manajer",
+    label: "Manajer",
+    sub: "Laporan & KPI",
+    Icon: LayoutDashboard,
+  },
+];
 
-const roleRedirect: Record<UserRole, string> = {
-  admin: "/dashboard",
-  manajer: "/dashboard",
-  produksi: "/produksi/work-order",
-  gudang: "/persediaan/bahan-baku",
-};
+// const roleRedirect: Record<UserRole, string> = {
+//   admin: "/dashboard",
+//   manajer: "/dashboard",
+//   kepalaTimProduksi: "/produksi/work-order",
+//   kepalaGudang: "/persediaan/bahan-baku",
+//   picproduksi: "/progress"
+// };
 
 export default function LoginPage() {
   const router = useRouter();
@@ -95,8 +121,8 @@ export default function LoginPage() {
         .join("; ");
 
       setTimeout(() => {
-        router.replace(roleRedirect[result.user!.role] ?? "/dashboard");
-      }, 800);
+        router.replace(HALAMAN_AWAL[result.user!.role]);
+      }, 0);
     } else {
       setAlert({ type: "err", msg: result.error ?? "Login gagal." });
     }
