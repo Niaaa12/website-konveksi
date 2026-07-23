@@ -92,10 +92,24 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+function getInitial(nama: string) {
+  return nama
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const [userRole, setUserRole] = useState<UserRole | null>(null);
 
+  const [userData, setUserData] = useState<{
+    nama: string;
+    email: string;
+    role: UserRole;
+  } | null>(null);
 
   useEffect(() => {
     const auth = getAuth();
@@ -105,7 +119,17 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
       const snap = await getDoc(doc(db, "users", user.uid));
 
-      setUserRole(snap.data()?.role as UserRole);
+      if (!snap.exists()) return;
+
+      const data = snap.data();
+
+      setUserRole(data.role as UserRole);
+
+      setUserData({
+        nama: data.nama,
+        email: data.email,
+        role: data.role,
+      });
     });
 
     return () => unsub();
@@ -123,7 +147,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     const role = HALAMAN_AKSES[item.href];
     return !role || role.includes(userRole!);
   });
-  
+
   return (
     <>
       {open && (
@@ -190,20 +214,22 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <SidebarStokKritisSection />
 
         {/* User */}
-        <div className="border-t border-sidebar-border p-3">
-          <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-primary text-xs font-semibold text-white">
-              AS
+        <div className="border-t border-sidebar-border p-2.5">
+          <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+              {userData ? getInitial(userData.nama) : "--"}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-sidebar-accent-foreground truncate">
-                Admin Sistem
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {userData?.nama ?? "Loading..."}
               </p>
-              <p className="text-[10px] text-sidebar-foreground/60 truncate">
-                admin@sodaigroup.id
+              <p className="truncate text-[11px] text-sidebar-foreground/60">
+                {userData?.email}
               </p>
             </div>
-            <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/40" />
+
+            <ChevronRight className="h-3 w-3 text-sidebar-foreground/40" />
           </div>
         </div>
       </aside>
@@ -292,4 +318,3 @@ function NavGroup({
     </li>
   );
 }
-
