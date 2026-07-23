@@ -124,7 +124,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
       const data = snap.data();
 
       setUserRole(data.role as UserRole);
-
+      
       setUserData({
         nama: data.nama,
         email: data.email,
@@ -134,19 +134,29 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
     return () => unsub();
   }, []);
-  const menuTersedia = menuItems.filter((item) => {
-    if (item.children) {
-      item.children = item.children.filter((child) => {
-        const role = HALAMAN_AKSES[child.href];
-        return !role || role.includes(userRole!);
+
+  const menuTersedia = menuItems
+    .map((item) => {
+      if (!item.children) return item;
+
+      const children = item.children.filter((child) => {
+        const roles = HALAMAN_AKSES[child.href];
+        return !roles || (userRole ? roles.includes(userRole) : false);
       });
 
-      return item.children.length > 0;
-    }
+      return {
+        ...item,
+        children,
+      };
+    })
+    .filter((item) => {
+      if (item.children) {
+        return item.children.length > 0;
+      }
 
-    const role = HALAMAN_AKSES[item.href];
-    return !role || role.includes(userRole!);
-  });
+      const roles = HALAMAN_AKSES[item.href!];
+      return !roles || (userRole ? roles.includes(userRole) : false);
+    });
 
   return (
     <>

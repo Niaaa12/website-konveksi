@@ -239,44 +239,44 @@ function FormUpdateTahap({
           Status Tahap Ini
         </label>
         <div className="grid grid-cols-2 gap-2">
-          {(
-            ["berlangsung", "selesai", "ada_masalah"] as TahapStatus[]
-          ).map((s) => {
-            const cfg = TAHAP_STATUS_CFG[s];
-            const Icon = cfg.icon;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStatusBaru(s)}
-                className={cn(
-                  "flex items-center gap-2 rounded-xl border p-3 text-left transition-all",
-                  statusBaru === s
-                    ? s === "ada_masalah"
-                      ? "border-red-400 bg-red-50 dark:bg-red-950/30 ring-1 ring-red-300"
-                      : s === "selesai"
-                      ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 ring-1 ring-emerald-300"
-                      : "border-blue-400 bg-blue-50 dark:bg-blue-950/30 ring-1 ring-blue-300"
-                    : "border-border hover:bg-muted/40"
-                )}
-              >
-                <Icon
+          {(["berlangsung", "selesai", "ada_masalah"] as TahapStatus[]).map(
+            (s) => {
+              const cfg = TAHAP_STATUS_CFG[s];
+              const Icon = cfg.icon;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStatusBaru(s)}
                   className={cn(
-                    "h-4 w-4 flex-shrink-0",
-                    statusBaru === s ? cfg.warna : "text-muted-foreground"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "text-xs font-medium",
-                    statusBaru === s ? cfg.warna : "text-muted-foreground"
+                    "flex items-center gap-2 rounded-xl border p-3 text-left transition-all",
+                    statusBaru === s
+                      ? s === "ada_masalah"
+                        ? "border-red-400 bg-red-50 dark:bg-red-950/30 ring-1 ring-red-300"
+                        : s === "selesai"
+                        ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 ring-1 ring-emerald-300"
+                        : "border-blue-400 bg-blue-50 dark:bg-blue-950/30 ring-1 ring-blue-300"
+                      : "border-border hover:bg-muted/40"
                   )}
                 >
-                  {cfg.label}
-                </span>
-              </button>
-            );
-          })}
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 flex-shrink-0",
+                      statusBaru === s ? cfg.warna : "text-muted-foreground"
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "text-xs font-medium",
+                      statusBaru === s ? cfg.warna : "text-muted-foreground"
+                    )}
+                  >
+                    {cfg.label}
+                  </span>
+                </button>
+              );
+            }
+          )}
         </div>
       </div>
 
@@ -347,9 +347,7 @@ function KartuWO({
   const packingTahap = wo.tahap.find((t) => t.tahap === "packing");
   const pctPacking =
     wo.jumlahTarget > 0
-      ? Math.round(
-          ((packingTahap?.jumlahSelesai ?? 0) / wo.jumlahTarget) * 100
-        )
+      ? Math.round(((packingTahap?.jumlahSelesai ?? 0) / wo.jumlahTarget) * 100)
       : 0;
 
   return (
@@ -618,7 +616,7 @@ export default function ProgressPICPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* ── Header sticky ── */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 pt-4 pb-3">
+      <div className="border-b border-border px-4 pb-3">
         <div className="flex items-start justify-between gap-2">
           <div>
             <h1 className="text-base font-bold">Progress Produksi</h1>
