@@ -1747,7 +1747,7 @@ function KategoriModal({
               <div>
                 <p className="text-sm font-semibold">Hapus Kategori?</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  "{deleteTarget.nama}" akan dihapus permanen.
+                  &quot;{deleteTarget.nama}&quot; akan dihapus permanen.
                 </p>
               </div>
             </div>

@@ -592,7 +592,7 @@ export async function getVarianKritis(
 export async function getVariantsByProductIds(
   productIds: string[]
 ): Promise<Record<string, ProductVariant[]>> {
-  const unique = [...new Set(productIds)].filter(Boolean);
+  const unique = Array.from(new Set(productIds)).filter(Boolean);
   if (unique.length === 0) return {};
 
   const results = await Promise.all(

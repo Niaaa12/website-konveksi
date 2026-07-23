@@ -305,7 +305,7 @@ function DeleteBahanModal({ open, onClose, onConfirm, nama }: { open: boolean; o
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30"><AlertCircle className="h-6 w-6 text-red-500" /></div>
           <div>
             <h3 className="text-sm font-semibold text-foreground">Hapus Bahan Baku?</h3>
-            <p className="mt-1 text-xs text-muted-foreground">Bahan <span className="font-semibold text-foreground">"{nama}"</span> akan dihapus permanen.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Bahan <span className="font-semibold text-foreground">&quot;{nama}&quot;</span> akan dihapus permanen.</p>
           </div>
           <div className="flex w-full gap-3">
             <button onClick={onClose} disabled={loading} className="flex-1 h-10 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60">Batal</button>

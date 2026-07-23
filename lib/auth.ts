@@ -26,7 +26,7 @@ export const HALAMAN_AKSES: Record<string, UserRole[]> = {
   "/pengeluaran": ["admin", "kepalaGudang"],
   "/progress": ["admin", "manajer", "kepalaTimProduksi", "picproduksi"],
   "/katalogproduk": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
-  "/laporan": ["admin", "manajer", "kepalaGudang"],
+  "/laporan": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
   "/pengguna": ["admin"],
   "/pengaturan": ["admin", "manajer"],
 };
