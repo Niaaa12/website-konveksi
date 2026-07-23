@@ -162,7 +162,7 @@ service cloud.firestore {
       match /tahapProduksi/{tahapId} {
         allow read:   if isAnyStaff();
         allow create: if isProduksi();
-        allow update: if isProduksi();
+        allow update: if isProduksi() || isPICProduksi();
         allow delete: if isAdmin();
       }
 

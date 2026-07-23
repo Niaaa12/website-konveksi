@@ -31,6 +31,7 @@ export type WoStatus =
   | "selesai"
   | "tertunda"
   | "batal";
+export type WoTahap = "potong" | "jahit" | "obras" | "finishing" | "packing";
 export type WoPrioritas = "rendah" | "normal" | "tinggi";
 export type StokStatus = "aman" | "rendah" | "kritis";
 export type TxJenis = "masuk" | "keluar" | "koreksi";
@@ -45,6 +46,8 @@ export interface WorkOrder {
   jumlahCacat: number;
   status: WoStatus;
   prioritas: WoPrioritas;
+  tahapSaatIni?: WoTahap;
+  progress?: number;
   unitId: string;
   operatorId: string;
   tanggalMulai: string;
@@ -127,9 +130,11 @@ export async function getWorkOrder(woId: string): Promise<WorkOrder | null> {
 export async function createWorkOrder(
   data: Omit<WorkOrder, "id" | "createdAt" | "updatedAt">
 ): Promise<string> {
-  // 1. Buat dokumen WO
+  // 1. Buat dokumen WO — status dijadwalkan, progress 0%, tahap awal potong
   const ref = await addDoc(collection(db, "workOrders"), {
     ...data,
+    progress: 0,
+    tahapSaatIni: "potong" as WoTahap,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -820,9 +825,9 @@ export async function getProductionUnitsSummary(): Promise<
         rataEfisiensi:
           aktifList.length > 0
             ? Math.round(
-                aktifList.reduce((s, u) => s + u.efisiensi, 0) /
-                  aktifList.length
-              )
+              aktifList.reduce((s, u) => s + u.efisiensi, 0) /
+              aktifList.length
+            )
             : 0,
       };
     })
@@ -936,6 +941,19 @@ export const URUTAN_TAHAP: TahapId[] = [
   "packing",
 ];
 
+/**
+ * Progress tetap per tahap produksi (%).
+ * WO dibuat → 0%. PIC mulai potong → 20% → dst → packing selesai → 100%.
+ * Ini yang ditampilkan di kolom "Progress" halaman Work Order.
+ */
+export const TAHAP_PROGRESS: Record<TahapId, number> = {
+  potong: 20,
+  jahit: 40,
+  obras: 60,
+  finishing: 80,
+  packing: 90,
+};
+
 /** Ambil semua tahap produksi sebuah WO, diurutkan sesuai alur produksi */
 export async function getTahapProduksi(woId: string): Promise<TahapProduksi[]> {
   const snap = await getDocs(
@@ -978,11 +996,25 @@ export async function inisialisasiTahapProduksi(
 }
 
 /**
- * PIC update progress satu tahap.
- * Kalau tahap diselesaikan (status = "selesai"), otomatis:
- *   - set selesaiAt
- *   - buka (status = "berlangsung") tahap berikutnya
- *   - set jumlahMasuk tahap berikutnya = jumlahSelesai tahap ini
+ * PIC update progress satu tahap produksi.
+ *
+ * Mengelola TIGA INDIKATOR Work Order secara atomik:
+ *
+ *  1. STATUS WO:
+ *     - dijadwalkan → berjalan  (saat PIC pertama kali update)
+ *     - berjalan → tertunda     (saat PIC set tahap ke ada_masalah)
+ *     - tertunda → berjalan     (saat PIC resolve masalah, kembali berlangsung)
+ *     - berjalan → selesai      (saat packing selesai)
+ *
+ *  2. TAHAP SAAT INI:
+ *     potong → jahit → obras → finishing → packing
+ *     Pindah ke tahap berikutnya saat tahap sebelumnya selesai.
+ *     Tidak berubah saat ada_masalah (tertunda).
+ *
+ *  3. PROGRESS (%):
+ *     0% (dijadwalkan) → 20% (potong) → 40% (jahit) → 60% (obras)
+ *     → 80% (finishing) → 90% (packing) → 100% (selesai)
+ *     Tidak berubah saat ada_masalah (tertunda).
  */
 export async function updateTahapProduksi(
   woId: string,
@@ -996,13 +1028,19 @@ export async function updateTahapProduksi(
   }
 ): Promise<void> {
   const tahapRef = doc(db, `workOrders/${woId}/tahapProduksi/${tahapId}`);
+  const woRef = doc(db, "workOrders", woId);
   const selesai = update.status === "selesai";
 
   await runTransaction(db, async (tx) => {
-    const snap = await tx.get(tahapRef);
-    if (!snap.exists()) throw new Error(`Tahap ${tahapId} tidak ditemukan.`);
+    const [tahapSnap, woSnap] = await Promise.all([
+      tx.get(tahapRef),
+      tx.get(woRef),
+    ]);
+    if (!tahapSnap.exists()) throw new Error(`Tahap ${tahapId} tidak ditemukan.`);
+    if (!woSnap.exists()) throw new Error(`Work order tidak ditemukan.`);
+    const wo = woSnap.data() as WorkOrder;
 
-    // Update tahap ini
+    // ── 1. Update dokumen tahap yang sedang dikerjakan ─────────────────────
     tx.update(tahapRef, {
       jumlahSelesai: update.jumlahSelesai,
       jumlahCacat: update.jumlahCacat,
@@ -1013,11 +1051,18 @@ export async function updateTahapProduksi(
       ...(selesai ? { selesaiAt: serverTimestamp() } : {}),
     });
 
-    // Kalau selesai, buka tahap berikutnya
+    // ── 2. Hitung tiga indikator WO ───────────────────────────────────────
+    let newWoStatus: WoStatus = wo.status;
+    let newProgress: number = wo.progress ?? 0;
+    let newTahapSaatIni: WoTahap = (wo.tahapSaatIni ?? tahapId) as WoTahap;
+
     if (selesai) {
-      const urutanSekarang = TAHAP_CONFIG[tahapId].urutan;
-      const tahapBerikutnyaId = URUTAN_TAHAP[urutanSekarang]; // urutan 1-based, index 0-based
+      // ── Tahap selesai: buka tahap berikutnya, progress naik ─────────────
+      const urutanSekarang = TAHAP_CONFIG[tahapId].urutan; // 1-based
+      const tahapBerikutnyaId = URUTAN_TAHAP[urutanSekarang]; // index 0-based
+
       if (tahapBerikutnyaId) {
+        // Buka tahap berikutnya di subcollection
         const nextRef = doc(
           db,
           `workOrders/${woId}/tahapProduksi/${tahapBerikutnyaId}`
@@ -1028,41 +1073,73 @@ export async function updateTahapProduksi(
           mulaiAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+
+        // WO: pindah ke tahap berikutnya 
+        newTahapSaatIni = tahapBerikutnyaId as WoTahap;
+
+        // Progress mengikuti tahap yang BARU selesai
+        newProgress = TAHAP_PROGRESS[tahapId];
+        newWoStatus = "berjalan";
       }
 
-      // Kalau tahap terakhir (packing) selesai, update status WO jadi selesai
       if (tahapId === "packing") {
-        const woRef = doc(db, "workOrders", woId);
-        const woSnap = await tx.get(woRef);
-        if (woSnap.exists()) {
-          const wo = woSnap.data() as WorkOrder;
-          tx.update(woRef, {
-            status: "selesai",
-            jumlahSelesai: update.jumlahSelesai,
-            jumlahCacat: update.jumlahCacat,
-            tanggalSelesai: new Date().toISOString().slice(0, 10),
-            updatedAt: serverTimestamp(),
-          });
+        // ── Packing selesai: WO selesai, progress 100% ────────────────────
+        newWoStatus = "selesai";
+        newProgress = 100;
+        newTahapSaatIni = "packing" as WoTahap;
 
-          // Otomatis tambah stok produk jadi di Gudang Besar (stokJadi)
-          if (wo.productId && wo.variantId) {
-            const variantRef = doc(
-              db,
-              `products/${wo.productId}/variants/${wo.variantId}`
-            );
-            const variantSnap = await tx.get(variantRef);
-            if (variantSnap.exists()) {
-              const variantData = variantSnap.data() as ProductVariant;
-              const stokLama = variantData.stokJadi ?? 0;
-              tx.update(variantRef, {
-                stokJadi: stokLama + update.jumlahSelesai,
-                updatedAt: serverTimestamp(),
-              });
-            }
+        tx.update(woRef, {
+          status: "selesai",
+          jumlahSelesai: update.jumlahSelesai,
+          jumlahCacat: update.jumlahCacat,
+          tahapSaatIni: "packing" as WoTahap,
+          progress: 100,
+          tanggalSelesai: new Date().toISOString().slice(0, 10),
+          updatedAt: serverTimestamp(),
+        });
+
+        // Otomatis tambah stok produk jadi di Gudang Besar
+        if (wo.productId && wo.variantId) {
+          const variantRef = doc(
+            db,
+            `products/${wo.productId}/variants/${wo.variantId}`
+          );
+          const variantSnap = await tx.get(variantRef);
+          if (variantSnap.exists()) {
+            const variantData = variantSnap.data() as ProductVariant;
+            const stokLama = variantData.stokJadi ?? 0;
+            tx.update(variantRef, {
+              stokJadi: stokLama + update.jumlahSelesai,
+              updatedAt: serverTimestamp(),
+            });
           }
         }
+
+        return; // WO sudah diupdate di atas, keluar
       }
+    } else if (update.status === "ada_masalah") {
+      // ── Ada masalah: status WO → tertunda, tahap & progress TIDAK berubah
+      newWoStatus = "tertunda";
+      // Tahap dan progress tetap di posisi terakhir
+    } else if (update.status === "berlangsung") {
+      // ── Berlangsung (normal atau setelah resolve masalah) ────────────────
+      // Jika WO masih dijadwalkan atau tertunda → pindah ke berjalan
+      if (wo.status === "dijadwalkan" || wo.status === "tertunda") {
+        newWoStatus = "berjalan";
+      }
+      newTahapSaatIni = tahapId as WoTahap;
+      newProgress = wo.progress ?? 0;
     }
+
+    // ── 3. Sync tiga indikator ke dokumen WorkOrder ───────────────────────
+    tx.update(woRef, {
+      status: newWoStatus,
+      tahapSaatIni: newTahapSaatIni,
+      progress: newProgress,
+      jumlahSelesai: update.jumlahSelesai,
+      jumlahCacat: update.jumlahCacat,
+      updatedAt: serverTimestamp(),
+    });
   });
 }
 
@@ -1254,13 +1331,13 @@ export async function getWarehouseTransfers(): Promise<WarehouseTransfer[]> {
   );
   return snap.docs.map(
     (d) =>
-      ({
-        id: d.id,
-        ...d.data(),
-        createdAt: d.data().createdAt?.toDate
-          ? d.data().createdAt.toDate()
-          : d.data().createdAt,
-      } as WarehouseTransfer)
+    ({
+      id: d.id,
+      ...d.data(),
+      createdAt: d.data().createdAt?.toDate
+        ? d.data().createdAt.toDate()
+        : d.data().createdAt,
+    } as WarehouseTransfer)
   );
 }
 
@@ -1314,13 +1391,13 @@ export async function getProductOutflows(): Promise<ProductOutflow[]> {
   );
   return snap.docs.map(
     (d) =>
-      ({
-        id: d.id,
-        ...d.data(),
-        createdAt: d.data().createdAt?.toDate
-          ? d.data().createdAt.toDate()
-          : d.data().createdAt,
-      } as ProductOutflow)
+    ({
+      id: d.id,
+      ...d.data(),
+      createdAt: d.data().createdAt?.toDate
+        ? d.data().createdAt.toDate()
+        : d.data().createdAt,
+    } as ProductOutflow)
   );
 }
 

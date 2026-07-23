@@ -12,6 +12,7 @@ import type {
   AppUser,
   ProductVariant,
   UkuranHijab,
+  WoTahap,
 } from "@/lib/firestore";
 import { getProductVariants, hitungVariantStokStatus } from "@/lib/firestore";
 import { STATUS_CFG } from "./work-order-shared";
@@ -24,6 +25,8 @@ export interface WOFormData {
   jumlahTarget: number;
   status: WoStatus;
   prioritas: WoPrioritas;
+  tahapSaatIni?: WoTahap;
+  progress?: number;
   unitId: string;
   operatorId: string;
   tanggalMulai: string;
@@ -39,6 +42,8 @@ const EMPTY_WO: WOFormData = {
   jumlahTarget: 0,
   status: "dijadwalkan",
   prioritas: "normal",
+  tahapSaatIni: "potong",
+  progress: 0,
   unitId: "",
   operatorId: "",
   tanggalMulai: "",
@@ -93,6 +98,8 @@ export function WOFormModal({
         jumlahTarget: initial.jumlahTarget,
         status: initial.status,
         prioritas: initial.prioritas,
+        tahapSaatIni: initial.tahapSaatIni,
+        progress: initial.progress,
         unitId: initial.unitId,
         operatorId: initial.operatorId ?? "",
         tanggalMulai: initial.tanggalMulai,
@@ -109,6 +116,8 @@ export function WOFormModal({
         jumlahTarget: prefill.jumlahTarget ?? 0,
         status: "dijadwalkan",
         prioritas: "normal",
+        tahapSaatIni: "potong",
+        progress: 0,
         unitId: "",
         operatorId: "",
         tanggalMulai: prefill.tanggalMulai ?? "",

@@ -6,66 +6,17 @@ import {
   TAHAP_CONFIG,
   URUTAN_TAHAP,
   type TahapProduksi,
-  type TahapStatus,
 } from "@/lib/firestore";
+import { TAHAP_STATUS_CFG } from "@/components/work-order/work-order-shared";
 import { cn } from "@/lib/utils";
-import {
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  RefreshCw,
-  Loader2,
-} from "lucide-react";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Konfigurasi visual — sama persis dengan halaman Progress PIC
-// (satu sumber kebenaran untuk konsistensi warna/label)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const STATUS_CFG: Record<
-  TahapStatus,
-  {
-    label: string;
-    warna: string;
-    bg: string;
-    dot: string;
-    icon: React.ElementType;
-  }
-> = {
-  belum_mulai: {
-    label: "Belum Mulai",
-    warna: "text-slate-500",
-    bg: "bg-slate-100 dark:bg-slate-800",
-    dot: "bg-slate-300",
-    icon: Clock,
-  },
-  berlangsung: {
-    label: "Berlangsung",
-    warna: "text-blue-700",
-    bg: "bg-blue-100 dark:bg-blue-900/40",
-    dot: "bg-blue-500",
-    icon: RefreshCw,
-  },
-  selesai: {
-    label: "Selesai",
-    warna: "text-emerald-700",
-    bg: "bg-emerald-100 dark:bg-emerald-900/40",
-    dot: "bg-emerald-500",
-    icon: CheckCircle2,
-  },
-  ada_masalah: {
-    label: "Ada Masalah",
-    warna: "text-red-700",
-    bg: "bg-red-100 dark:bg-red-900/40",
-    dot: "bg-red-500",
-    icon: AlertTriangle,
-  },
-};
+import { AlertTriangle, Clock, Loader2 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KOMPONEN UTAMA: TahapProduksiPanel
 // Dipakai di dalam modal detail Work Order (WODetailModal) untuk manajer.
 // Data real-time via Firestore listener — otomatis update tanpa refresh.
+// Konfigurasi visual (TAHAP_STATUS_CFG) diimpor dari work-order-shared
+// agar konsisten dengan halaman Progress PIC.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function TahapProduksiPanel({
@@ -116,7 +67,7 @@ export function TahapProduksiPanel({
 
   return (
     <div className="space-y-4">
-      {/* Ringkasan */}
+      {/* ── Ringkasan ── */}
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl bg-muted/40 p-3 text-center">
           <p className="text-lg font-bold">
@@ -158,7 +109,7 @@ export function TahapProduksiPanel({
         </div>
       </div>
 
-      {/* Alert masalah (kalau ada) */}
+      {/* ── Alert kendala (jika ada) ── */}
       {adaMasalah.length > 0 && (
         <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 px-4 py-3 space-y-1.5">
           <div className="flex items-center gap-2">
@@ -184,7 +135,7 @@ export function TahapProduksiPanel({
         </div>
       )}
 
-      {/* Tabel tahap */}
+      {/* ── Tabel per tahap ── */}
       <div className="rounded-xl border border-border overflow-hidden">
         {/* Header */}
         <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-muted/30 border-b border-border text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -196,11 +147,11 @@ export function TahapProduksiPanel({
         </div>
 
         {/* Baris per tahap */}
-        {URUTAN_TAHAP.map((tahapId, idx) => {
+        {URUTAN_TAHAP.map((tahapId) => {
           const tahap = tahapList.find((t) => t.tahap === tahapId);
           if (!tahap) return null;
 
-          const cfg = STATUS_CFG[tahap.status];
+          const cfg = TAHAP_STATUS_CFG[tahap.status];
           const Icon = cfg.icon;
           const pct =
             tahap.jumlahMasuk > 0
@@ -270,7 +221,7 @@ export function TahapProduksiPanel({
                 </div>
               </div>
 
-              {/* Progress bar tipis di bawah baris (hanya tahap yang sudah mulai) */}
+              {/* Progress bar tipis (hanya tahap yang sudah mulai) */}
               {tahap.status !== "belum_mulai" && tahap.jumlahMasuk > 0 && (
                 <div className="px-4 pb-2">
                   <div className="h-1 w-full rounded-full bg-muted overflow-hidden">
@@ -302,12 +253,10 @@ export function TahapProduksiPanel({
         })}
       </div>
 
-      {/* Waktu terakhir update */}
-      {tahapList[0]?.updatedAt && (
-        <p className="text-[10px] text-muted-foreground text-right">
-          Data real-time · diperbarui otomatis saat PIC menyimpan progress
-        </p>
-      )}
+      {/* Keterangan real-time */}
+      <p className="text-[10px] text-muted-foreground text-right">
+        Data real-time · diperbarui otomatis saat PIC menyimpan progress
+      </p>
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
 import {
   STATUS_CFG,
   StatusBadge,
+  TahapBadge,
   PriorBadge,
   ProgressBar,
 } from "@/components/work-order/work-order-shared";
@@ -166,19 +167,18 @@ function WorkOrderPageContent() {
   }, []);
 
   async function handleSave(data: WOFormData, id?: string) {
+    const existingWO = id ? workOrders.find((w) => w.id === id) : undefined;
     const payload: Omit<WorkOrder, "id" | "createdAt" | "updatedAt"> = {
       nomor: data.nomor,
       productId: data.productId,
       variantId: data.variantId || null,
       jumlahTarget: data.jumlahTarget,
-      jumlahSelesai: id
-        ? workOrders.find((w) => w.id === id)?.jumlahSelesai ?? 0
-        : 0,
-      jumlahCacat: id
-        ? workOrders.find((w) => w.id === id)?.jumlahCacat ?? 0
-        : 0,
+      jumlahSelesai: existingWO?.jumlahSelesai ?? 0,
+      jumlahCacat: existingWO?.jumlahCacat ?? 0,
       status: data.status,
       prioritas: data.prioritas,
+      tahapSaatIni: existingWO?.tahapSaatIni ?? ("potong" as any),
+      progress: existingWO?.progress ?? 0,
       unitId: data.unitId,
       operatorId: data.operatorId,
       tanggalMulai: data.tanggalMulai,
@@ -187,9 +187,7 @@ function WorkOrderPageContent() {
         data.status === "selesai"
           ? new Date().toISOString().slice(0, 10)
           : null,
-      dibuatOleh: id
-        ? workOrders.find((w) => w.id === id)?.dibuatOleh ?? ""
-        : "",
+      dibuatOleh: existingWO?.dibuatOleh ?? "",
       catatan: data.catatan,
     };
     if (id) await updateWorkOrder(id, payload);
@@ -390,6 +388,7 @@ function WorkOrderPageContent() {
                   <th className="px-5 py-3 hidden md:table-cell">Unit</th>
                   <th className="px-5 py-3 hidden lg:table-cell">Progress</th>
                   <th className="px-5 py-3 hidden lg:table-cell">Jadwal</th>
+                  <th className="px-5 py-3">Tahap Aktif</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3 text-right">Aksi</th>
                 </tr>
@@ -447,6 +446,7 @@ function WorkOrderPageContent() {
                           done={wo.jumlahSelesai}
                           target={wo.jumlahTarget}
                           cacat={wo.jumlahCacat}
+                          progress={wo.progress ?? 0}
                         />
                       </td>
                       <td className="px-5 py-3.5 hidden lg:table-cell">
@@ -462,6 +462,9 @@ function WorkOrderPageContent() {
                         >
                           Target: {wo.tanggalTarget}
                         </p>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <TahapBadge tahap={wo.tahapSaatIni} />
                       </td>
                       <td className="px-5 py-3.5">
                         <StatusBadge status={wo.status} />

@@ -13,18 +13,17 @@ import {
   type TahapId,
   type TahapStatus,
 } from "@/lib/firestore";
+import { TAHAP_STATUS_CFG } from "@/components/work-order/work-order-shared";
 import { cn } from "@/lib/utils";
 import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
-  Clock,
   ChevronDown,
   ChevronUp,
   RefreshCw,
   Save,
   AlertCircle,
-  X,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,46 +33,7 @@ import {
 type WODenganTahap = WorkOrder & { tahap: TahapProduksi[] };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KONFIGURASI VISUAL STATUS TAHAP
-// ─────────────────────────────────────────────────────────────────────────────
-
-const STATUS_TAHAP_CFG: Record<
-  TahapStatus,
-  {
-    label: string;
-    warna: string;
-    bg: string;
-    icon: React.ElementType;
-  }
-> = {
-  belum_mulai: {
-    label: "Belum Mulai",
-    warna: "text-slate-500",
-    bg: "bg-slate-100 dark:bg-slate-800",
-    icon: Clock,
-  },
-  berlangsung: {
-    label: "Berlangsung",
-    warna: "text-blue-700",
-    bg: "bg-blue-100 dark:bg-blue-900/40",
-    icon: RefreshCw,
-  },
-  selesai: {
-    label: "Selesai",
-    warna: "text-emerald-700",
-    bg: "bg-emerald-100 dark:bg-emerald-900/40",
-    icon: CheckCircle2,
-  },
-  ada_masalah: {
-    label: "Ada Masalah",
-    warna: "text-red-700",
-    bg: "bg-red-100 dark:bg-red-900/40",
-    icon: AlertTriangle,
-  },
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// KOMPONEN: STEPPER ALUR TAHAP (visual alur Potong→Jahit→...→Packing)
+// KOMPONEN: STEPPER ALUR TAHAP (visual Potong→Jahit→...→Packing)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function StepperTahap({ tahapList }: { tahapList: TahapProduksi[] }) {
@@ -87,7 +47,7 @@ function StepperTahap({ tahapList }: { tahapList: TahapProduksi[] }) {
       {URUTAN_TAHAP.map((tahapId, idx) => {
         const tahap = byId[tahapId];
         const status = tahap?.status ?? "belum_mulai";
-        const cfg = STATUS_TAHAP_CFG[status];
+        const cfg = TAHAP_STATUS_CFG[status];
         const Icon = cfg.icon;
         const isLast = idx === URUTAN_TAHAP.length - 1;
 
@@ -280,17 +240,10 @@ function FormUpdateTahap({
         </label>
         <div className="grid grid-cols-2 gap-2">
           {(
-            [
-              "berlangsung",
-              "selesai",
-              "ada_masalah",
-              "belum_mulai",
-            ] as TahapStatus[]
+            ["berlangsung", "selesai", "ada_masalah"] as TahapStatus[]
           ).map((s) => {
-            const cfg = STATUS_TAHAP_CFG[s];
+            const cfg = TAHAP_STATUS_CFG[s];
             const Icon = cfg.icon;
-            // Sembunyikan "belum_mulai" dari pilihan manual
-            if (s === "belum_mulai") return null;
             return (
               <button
                 key={s}
@@ -384,23 +337,19 @@ function KartuWO({
 
   const namaProduk = products[wo.productId] ?? wo.productId;
 
-  // Tahap yang sedang berlangsung atau ada masalah
-  const tahapBerlangsung = wo.tahap.find(
-    (t) => t.status === "berlangsung" || t.status === "ada_masalah"
-  );
+  const tahapSelesai = wo.tahap.filter((t) => t.status === "selesai").length;
+  const totalTahap = URUTAN_TAHAP.length;
   const semuaSelesai =
     wo.tahap.length > 0 && wo.tahap.every((t) => t.status === "selesai");
   const adaMasalah = wo.tahap.some((t) => t.status === "ada_masalah");
-
-  // Progress keseluruhan (berapa tahap sudah selesai)
-  const tahapSelesai = wo.tahap.filter((t) => t.status === "selesai").length;
-  const totalTahap = URUTAN_TAHAP.length; // 5
 
   // Progress pcs dari tahap packing (output akhir)
   const packingTahap = wo.tahap.find((t) => t.tahap === "packing");
   const pctPacking =
     wo.jumlahTarget > 0
-      ? Math.round(((packingTahap?.jumlahSelesai ?? 0) / wo.jumlahTarget) * 100)
+      ? Math.round(
+          ((packingTahap?.jumlahSelesai ?? 0) / wo.jumlahTarget) * 100
+        )
       : 0;
 
   return (
@@ -439,7 +388,7 @@ function KartuWO({
             </p>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
-            {/* Progress tahap */}
+            {/* Counter tahap */}
             <div className="text-right">
               <p className="text-lg font-bold leading-none">
                 {tahapSelesai}/{totalTahap}
@@ -454,14 +403,14 @@ function KartuWO({
           </div>
         </div>
 
-        {/* Stepper mini */}
+        {/* Stepper visual */}
         {wo.tahap.length > 0 && (
           <div className="mt-3">
             <StepperTahap tahapList={wo.tahap} />
           </div>
         )}
 
-        {/* Progress bar output */}
+        {/* Progress bar output packing */}
         {pctPacking > 0 && (
           <div className="mt-2">
             <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
@@ -493,7 +442,7 @@ function KartuWO({
           ) : (
             <div className="divide-y divide-border">
               {wo.tahap.map((tahap) => {
-                const cfg = STATUS_TAHAP_CFG[tahap.status];
+                const cfg = TAHAP_STATUS_CFG[tahap.status];
                 const Icon = cfg.icon;
                 const isAktif = tahapAktif === tahap.tahap;
                 const bisaUpdate =
@@ -555,7 +504,7 @@ function KartuWO({
                       </div>
                     </div>
 
-                    {/* Catatan kendala (tampil kalau ada) */}
+                    {/* Catatan kendala */}
                     {tahap.catatanKendala && (
                       <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
                         <p className="text-[11px] text-amber-700 dark:text-amber-400">
@@ -564,7 +513,7 @@ function KartuWO({
                       </div>
                     )}
 
-                    {/* Form update (inline, tampil kalau tombol Update diklik) */}
+                    {/* Form update inline */}
                     {isAktif && bisaUpdate && (
                       <FormUpdateTahap
                         woId={wo.id!}
@@ -613,18 +562,18 @@ export default function ProgressPICPage() {
     if (!picId) return;
     setLoading(true);
     try {
-      const [woList, prodSnap] = await Promise.all([
+      const [woList, prodList] = await Promise.all([
         getWOdanTahapByPIC(picId).catch((e) => {
           console.error(e);
           return [];
         }),
-        import("@/lib/firestore").then((m) => m.getProducts()).catch(() => []),
+        getProducts().catch(() => []),
       ]);
       setWoDanTahap(woList);
 
       // Buat map productId → nama produk
       const map: Record<string, string> = {};
-      prodSnap.forEach((p: any) => {
+      prodList.forEach((p: any) => {
         if (p.id) map[p.id] = p.nama;
       });
       setProducts(map);
