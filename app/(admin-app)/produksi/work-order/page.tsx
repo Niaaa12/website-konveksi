@@ -32,6 +32,7 @@ import {
 } from "@/components/work-order/WOFormModal";
 import { WODetailModal } from "@/components/work-order/WODetailModal";
 import { WODeleteConfirm } from "@/components/work-order/WODeleteConfirm";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   Plus,
   Loader2,
@@ -99,6 +100,9 @@ function WorkOrderPageContent() {
   const [filterStatus, setFilterStatus] = useState<WoStatus | "">("");
   const [filterUnit, setFilterUnit] = useState("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10; // Menampilkan 10 baris data per halaman
+
   const [detailWO, setDetailWO] = useState<WorkOrder | null>(null);
   const [editWO, setEditWO] = useState<WorkOrder | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<WorkOrder | null>(null);
@@ -125,6 +129,10 @@ function WorkOrderPageContent() {
     }
     return undefined;
   }, [paramProductId, paramVariantId, paramJumlah]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterStatus, filterUnit]);
 
   useEffect(() => {
     if (prefillData) {
@@ -225,6 +233,11 @@ function WorkOrderPageContent() {
       }),
     [workOrders, search, filterStatus, filterUnit, products]
   );
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   const stats = useMemo(
     () => ({
@@ -343,14 +356,7 @@ function WorkOrderPageContent() {
 
       {/* ── Tabel ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <p className="text-xs text-muted-foreground">
-            Menampilkan{" "}
-            <span className="font-medium text-foreground">
-              {filtered.length}
-            </span>{" "}
-            dari {workOrders.length} work order
-          </p>
+        
           {(search || filterStatus || filterUnit) && (
             <button
               onClick={() => {
@@ -363,7 +369,6 @@ function WorkOrderPageContent() {
               <X className="h-3 w-3" /> Reset filter
             </button>
           )}
-        </div>
 
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-center">
@@ -397,7 +402,7 @@ function WorkOrderPageContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map((wo) => {
+                {paginatedData.map((wo) => {
                   const prod = products.find((p) => p.id === wo.productId);
                   const unit = units.find((u) => u.id === wo.unitId);
                   const today = new Date().toISOString().slice(0, 10);
@@ -504,19 +509,13 @@ function WorkOrderPageContent() {
             </table>
           </div>
         )}
-        {/* <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-          <p className="text-xs text-muted-foreground">
-            Menampilkan {filtered.length} dari {workOrders.length} work order
-          </p>
-          <div className="flex gap-1">
-            <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent disabled:opacity-50">
-              Sebelumnya
-            </button>
-            <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent">
-              Selanjutnya
-            </button>
-          </div>
-        </div> */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={(page) => setCurrentPage(page)}
+        />
       </div>
 
       {/* ── Modals (komponen bersama) ── */}

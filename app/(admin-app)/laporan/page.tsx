@@ -21,6 +21,9 @@ import {
   WarehouseTransfer,
   ProductOutflow,
   ProductVariant,
+  getStockTransactions,
+  getAllStockTransactions,
+  StockTransaction,
 } from "@/lib/firestore";
 import {
   LaporanTabId,
@@ -38,6 +41,7 @@ import { LaporanProduksiTab } from "@/components/laporan/LaporanProduksiTab";
 import { LaporanPersediaanTab } from "@/components/laporan/LaporanPersediaanTab";
 import { LaporanMutasiTab } from "@/components/laporan/LaporanMutasiTab";
 import { LaporanExportTab } from "@/components/laporan/LaporanExportTab";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   BarChart3,
   ClipboardList,
@@ -53,8 +57,15 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export default function LaporanPage() {
-  const { user, isAdmin, isManajer, isProduksi, isGudang, isPICProduksi, loading: authLoading } =
-    useAuth();
+  const {
+    user,
+    isAdmin,
+    isManajer,
+    isProduksi,
+    isGudang,
+    isPICProduksi,
+    loading: authLoading,
+  } = useAuth();
 
   // Tab State
   const [activeTab, setActiveTab] = useState<LaporanTabId>("ringkasan");
@@ -80,25 +91,42 @@ export default function LaporanPage() {
   const [operators, setOperators] = useState<AppUser[]>([]);
   const [transfers, setTransfers] = useState<WarehouseTransfer[]>([]);
   const [outflows, setOutflows] = useState<ProductOutflow[]>([]);
-  const [variantsMap, setVariantsMap] = useState<Record<string, ProductVariant[]>>({});
+  const [variantsMap, setVariantsMap] = useState<
+    Record<string, ProductVariant[]>
+  >({});
   const [tahapSummaries, setTahapSummaries] = useState<any[]>([]);
+
+  const [materialTransactions, setMaterialTransactions] = useState<any[]>([]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   // Load Firestore Data
   useEffect(() => {
     async function loadAllData() {
       setLoadingData(true);
       try {
-        const [wosData, matsData, prodsData, unitsData, opsData, trfData, outData, stageSumData] =
-          await Promise.all([
-            getWorkOrders().catch(() => []),
-            getMaterials().catch(() => []),
-            getProducts().catch(() => []),
-            getProductionUnitsWithEfisiensi().catch(() => []),
-            getOperators().catch(() => []),
-            getWarehouseTransfers().catch(() => []),
-            getProductOutflows().catch(() => []),
-            getTahapProduksiSummary().catch(() => []),
-          ]);
+        const [
+          wosData,
+          matsData,
+          prodsData,
+          unitsData,
+          opsData,
+          trfData,
+          outData,
+          stageSumData,
+          matTxData,
+        ] = await Promise.all([
+          getWorkOrders().catch(() => []),
+          getMaterials().catch(() => []),
+          getProducts().catch(() => []),
+          getProductionUnitsWithEfisiensi().catch(() => []),
+          getOperators().catch(() => []),
+          getWarehouseTransfers().catch(() => []),
+          getProductOutflows().catch(() => []),
+          getTahapProduksiSummary().catch(() => []),
+          getAllStockTransactions().catch(() => []),
+        ]);
 
         setWorkOrders(wosData);
         setMaterials(matsData);
@@ -108,10 +136,11 @@ export default function LaporanPage() {
         setTransfers(trfData);
         setOutflows(outData);
         setTahapSummaries(stageSumData);
+        setMaterialTransactions(matTxData);
 
         // Fetch variants for all products
         if (prodsData.length > 0) {
-          const pIds = prodsData.map((p) => p.id!).filter(Boolean);
+          const pIds = prodsData.map((p: Product) => p.id!).filter(Boolean);
           const vars = await getVariantsByProductIds(pIds);
           setVariantsMap(vars);
         }
@@ -126,6 +155,10 @@ export default function LaporanPage() {
       loadAllData();
     }
   }, [authLoading, isPICProduksi]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, filterState]);
 
   // Determine Visible Tabs based on User Role (RBAC)
   const visibleTabs = useMemo(() => {
@@ -160,7 +193,10 @@ export default function LaporanPage() {
 
   // Ensure active tab is within allowed tabs
   useEffect(() => {
-    if (visibleTabs.length > 0 && !visibleTabs.some((t) => t.id === activeTab)) {
+    if (
+      visibleTabs.length > 0 &&
+      !visibleTabs.some((t) => t.id === activeTab)
+    ) {
       setActiveTab(visibleTabs[0].id as LaporanTabId);
     }
   }, [visibleTabs, activeTab]);
@@ -170,16 +206,27 @@ export default function LaporanPage() {
     return workOrders.filter((wo) => {
       // Date Range Filter
       if (filterState.tanggalAwal) {
-        const woDate = wo.tanggalMulai || (wo.createdAt ? new Date(wo.createdAt).toISOString().slice(0, 10) : "");
+        const woDate =
+          wo.tanggalMulai ||
+          (wo.createdAt
+            ? new Date(wo.createdAt).toISOString().slice(0, 10)
+            : "");
         if (woDate && woDate < filterState.tanggalAwal) return false;
       }
       if (filterState.tanggalAkhir) {
-        const woDate = wo.tanggalMulai || (wo.createdAt ? new Date(wo.createdAt).toISOString().slice(0, 10) : "");
+        const woDate =
+          wo.tanggalMulai ||
+          (wo.createdAt
+            ? new Date(wo.createdAt).toISOString().slice(0, 10)
+            : "");
         if (woDate && woDate > filterState.tanggalAkhir) return false;
       }
 
       // Product Filter
-      if (filterState.productId !== "semua" && wo.productId !== filterState.productId) {
+      if (
+        filterState.productId !== "semua" &&
+        wo.productId !== filterState.productId
+      ) {
         return false;
       }
 
@@ -189,7 +236,10 @@ export default function LaporanPage() {
       }
 
       // Operator / PIC Filter
-      if (filterState.operatorId !== "semua" && wo.operatorId !== filterState.operatorId) {
+      if (
+        filterState.operatorId !== "semua" &&
+        wo.operatorId !== filterState.operatorId
+      ) {
         return false;
       }
 
@@ -216,7 +266,9 @@ export default function LaporanPage() {
     return materials.filter((m) => {
       if (filterState.searchQuery.trim() !== "") {
         const q = filterState.searchQuery.toLowerCase();
-        return m.nama.toLowerCase().includes(q) || m.kode.toLowerCase().includes(q);
+        return (
+          m.nama.toLowerCase().includes(q) || m.kode.toLowerCase().includes(q)
+        );
       }
       return true;
     });
@@ -225,9 +277,21 @@ export default function LaporanPage() {
   // Global Filtering Logic across Transfers
   const filteredTransfers = useMemo(() => {
     return transfers.filter((tr) => {
-      if (filterState.tanggalAwal && tr.tanggalTransfer < filterState.tanggalAwal) return false;
-      if (filterState.tanggalAkhir && tr.tanggalTransfer > filterState.tanggalAkhir) return false;
-      if (filterState.productId !== "semua" && tr.productId !== filterState.productId) return false;
+      if (
+        filterState.tanggalAwal &&
+        tr.tanggalTransfer < filterState.tanggalAwal
+      )
+        return false;
+      if (
+        filterState.tanggalAkhir &&
+        tr.tanggalTransfer > filterState.tanggalAkhir
+      )
+        return false;
+      if (
+        filterState.productId !== "semua" &&
+        tr.productId !== filterState.productId
+      )
+        return false;
       if (filterState.searchQuery.trim() !== "") {
         const q = filterState.searchQuery.toLowerCase();
         return (
@@ -243,9 +307,21 @@ export default function LaporanPage() {
   // Global Filtering Logic across Outflows
   const filteredOutflows = useMemo(() => {
     return outflows.filter((out) => {
-      if (filterState.tanggalAwal && out.tanggalOutflow < filterState.tanggalAwal) return false;
-      if (filterState.tanggalAkhir && out.tanggalOutflow > filterState.tanggalAkhir) return false;
-      if (filterState.productId !== "semua" && out.productId !== filterState.productId) return false;
+      if (
+        filterState.tanggalAwal &&
+        out.tanggalOutflow < filterState.tanggalAwal
+      )
+        return false;
+      if (
+        filterState.tanggalAkhir &&
+        out.tanggalOutflow > filterState.tanggalAkhir
+      )
+        return false;
+      if (
+        filterState.productId !== "semua" &&
+        out.productId !== filterState.productId
+      )
+        return false;
       if (filterState.searchQuery.trim() !== "") {
         const q = filterState.searchQuery.toLowerCase();
         return (
@@ -258,23 +334,69 @@ export default function LaporanPage() {
     });
   }, [outflows, filterState]);
 
+  const paginatedWorkOrders = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredWorkOrders.slice(start, start + pageSize);
+  }, [filteredWorkOrders, currentPage, pageSize]);
+
+  const paginatedUnits = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return units.slice(start, start + pageSize);
+  }, [units, currentPage, pageSize]);
+
+  const paginatedMaterials = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredMaterials.slice(start, start + pageSize);
+  }, [filteredMaterials, currentPage, pageSize]);
+
+  const paginatedTransfers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredTransfers.slice(start, start + pageSize);
+  }, [filteredTransfers, currentPage, pageSize]);
+
+  const paginatedOutflows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredOutflows.slice(start, start + pageSize);
+  }, [filteredOutflows, currentPage, pageSize]);
+
   // Aggregated Report Metrics
   const woSummaryReport: WOSummaryReport = useMemo(() => {
     const totalWO = filteredWorkOrders.length;
-    const selesai = filteredWorkOrders.filter((w) => w.status === "selesai").length;
-    const berjalan = filteredWorkOrders.filter((w) => w.status === "berjalan").length;
-    const tertunda = filteredWorkOrders.filter((w) => w.status === "tertunda").length;
-    const dijadwalkan = filteredWorkOrders.filter((w) => w.status === "dijadwalkan").length;
+    const selesai = filteredWorkOrders.filter(
+      (w) => w.status === "selesai"
+    ).length;
+    const berjalan = filteredWorkOrders.filter(
+      (w) => w.status === "berjalan"
+    ).length;
+    const tertunda = filteredWorkOrders.filter(
+      (w) => w.status === "tertunda"
+    ).length;
+    const dijadwalkan = filteredWorkOrders.filter(
+      (w) => w.status === "dijadwalkan"
+    ).length;
     const batal = filteredWorkOrders.filter((w) => w.status === "batal").length;
 
-    const totalTarget = filteredWorkOrders.reduce((sum, w) => sum + (w.jumlahTarget || 0), 0);
-    const totalSelesai = filteredWorkOrders.reduce((sum, w) => sum + (w.jumlahSelesai || 0), 0);
-    const totalCacat = filteredWorkOrders.reduce((sum, w) => sum + (w.jumlahCacat || 0), 0);
+    const totalTarget = filteredWorkOrders.reduce(
+      (sum, w) => sum + (w.jumlahTarget || 0),
+      0
+    );
+    const totalSelesai = filteredWorkOrders.reduce(
+      (sum, w) => sum + (w.jumlahSelesai || 0),
+      0
+    );
+    const totalCacat = filteredWorkOrders.reduce(
+      (sum, w) => sum + (w.jumlahCacat || 0),
+      0
+    );
 
     const persentasePencapaian =
-      totalTarget > 0 ? Math.min(100, Math.round((totalSelesai / totalTarget) * 100)) : 0;
+      totalTarget > 0
+        ? Math.min(100, Math.round((totalSelesai / totalTarget) * 100))
+        : 0;
     const persentaseDefect =
-      totalSelesai > 0 ? Number(((totalCacat / totalSelesai) * 100).toFixed(1)) : 0;
+      totalSelesai > 0
+        ? Number(((totalCacat / totalSelesai) * 100).toFixed(1))
+        : 0;
 
     return {
       totalWO,
@@ -298,7 +420,9 @@ export default function LaporanPage() {
       0
     );
     const totalMaterialAktif = filteredMaterials.length;
-    const totalMaterialKritis = filteredMaterials.filter((m) => m.stokAktual <= m.stokMin).length;
+    const totalMaterialKritis = filteredMaterials.filter(
+      (m) => m.stokAktual <= m.stokMin
+    ).length;
 
     let totalStokGudangBesar = 0;
     let totalStokGudangPacking = 0;
@@ -332,16 +456,25 @@ export default function LaporanPage() {
       materialMasuk: 0,
       materialKeluar: 0,
       totalTransferGudang: filteredTransfers.length,
-      totalJumlahTransfer: filteredTransfers.reduce((sum, tr) => sum + tr.jumlah, 0),
+      totalJumlahTransfer: filteredTransfers.reduce(
+        (sum, tr) => sum + tr.jumlah,
+        0
+      ),
       totalPengeluaranProduk: filteredOutflows.length,
-      totalJumlahPengeluaran: filteredOutflows.reduce((sum, out) => sum + out.jumlah, 0),
+      totalJumlahPengeluaran: filteredOutflows.reduce(
+        (sum, out) => sum + out.jumlah,
+        0
+      ),
     };
   }, [filteredMaterials, filteredTransfers, filteredOutflows]);
 
   // Stage Reports
   const stageReports: ProductionStageReport[] = useMemo(() => {
     return tahapSummaries.map((s) => {
-      const defRate = s.totalSelesai > 0 ? Number(((s.totalCacat / s.totalSelesai) * 100).toFixed(1)) : 0;
+      const defRate =
+        s.totalSelesai > 0
+          ? Number(((s.totalCacat / s.totalSelesai) * 100).toFixed(1))
+          : 0;
       return {
         tahap: s.labelPendek || s.tahapId,
         jumlahWO: s.jumlahWO,
@@ -377,7 +510,9 @@ export default function LaporanPage() {
         </div>
         <h2 className="text-lg font-bold text-foreground">Akses Ditolak</h2>
         <p className="text-sm text-muted-foreground max-w-md mt-1">
-          Role <strong>PIC Produksi</strong> tidak memiliki hak akses untuk membuka Pusat Analisis Laporan. Silakan kembali ke halaman pekerjaan Anda.
+          Role <strong>PIC Produksi</strong> tidak memiliki hak akses untuk
+          membuka Pusat Analisis Laporan. Silakan kembali ke halaman pekerjaan
+          Anda.
         </p>
         <Link
           href="/progress"
@@ -406,7 +541,10 @@ export default function LaporanPage() {
 
         {/* Tab Navigation */}
         <div className="border-b border-border">
-          <nav className="flex space-x-2 overflow-x-auto pb-px" aria-label="Tabs">
+          <nav
+            className="flex space-x-2 overflow-x-auto pb-px"
+            aria-label="Tabs"
+          >
             {visibleTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -434,7 +572,9 @@ export default function LaporanPage() {
           <div className="flex h-64 items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-[#003247]" />
-              <p className="text-xs text-muted-foreground">Memuat data analisis laporan...</p>
+              <p className="text-xs text-muted-foreground">
+                Memuat data analisis laporan...
+              </p>
             </div>
           </div>
         ) : (
@@ -455,41 +595,79 @@ export default function LaporanPage() {
             )}
 
             {activeTab === "workorder" && (
-              <LaporanWorkOrderTab
-                workOrders={filteredWorkOrders}
-                products={products}
-                units={units}
-                operators={operators}
-                summary={woSummaryReport}
-              />
+              <div className="space-y-4">
+                <LaporanWorkOrderTab
+                  workOrders={paginatedWorkOrders} // <-- Ubah ke paginatedWorkOrders
+                  products={products}
+                  units={units}
+                  operators={operators}
+                  summary={woSummaryReport}
+                />
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(filteredWorkOrders.length / pageSize)}
+                  totalItems={filteredWorkOrders.length}
+                  pageSize={pageSize}
+                  onPageChange={(page) => setCurrentPage(page)}
+                />
+              </div>
             )}
 
             {activeTab === "produksi" && (
-              <LaporanProduksiTab
-                workOrders={filteredWorkOrders}
-                units={units}
-                operators={operators}
-                stageReports={stageReports}
-              />
+              <div className="space-y-4">
+                <LaporanProduksiTab
+                  workOrders={filteredWorkOrders}
+                  units={paginatedUnits} // <-- Ubah menggunakan paginatedUnits
+                  operators={operators}
+                  stageReports={stageReports}
+                />
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(units.length / pageSize)}
+                  totalItems={units.length}
+                  pageSize={pageSize}
+                  onPageChange={(page) => setCurrentPage(page)}
+                />
+              </div>
             )}
 
             {activeTab === "persediaan" && (
-              <LaporanPersediaanTab
-                materials={filteredMaterials}
-                products={products}
-                variantsMap={variantsMap}
-                valuation={inventoryValuationReport}
-              />
+              <div className="space-y-4">
+                <LaporanPersediaanTab
+                  materials={paginatedMaterials} // <-- Ubah ke paginatedMaterials
+                  products={products}
+                  variantsMap={variantsMap}
+                  valuation={inventoryValuationReport}
+                />
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(filteredMaterials.length / pageSize)}
+                  totalItems={filteredMaterials.length}
+                  pageSize={pageSize}
+                  onPageChange={(page) => setCurrentPage(page)}
+                />
+              </div>
             )}
 
             {activeTab === "mutasi" && (
-              <LaporanMutasiTab
-                transactions={[]}
-                transfers={filteredTransfers}
-                outflows={filteredOutflows}
-                materials={filteredMaterials}
-                summary={mutationReport}
-              />
+              <div className="space-y-4">
+                <LaporanMutasiTab
+                  transactions={materialTransactions} // <-- Masukkan datanya di sini
+                  transfers={paginatedTransfers}
+                  outflows={paginatedOutflows}
+                  materials={paginatedMaterials}
+                  summary={mutationReport}
+                  workOrders={workOrders}
+                  operators={operators}
+                />
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(materialTransactions.length / pageSize)}
+                  totalItems={materialTransactions.length}
+                  pageSize={pageSize}
+                  onPageChange={(page) => setCurrentPage(page)}
+                />
+              </div>
             )}
 
             {activeTab === "export" && (

@@ -534,6 +534,22 @@ export async function getStockTransactions(
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as StockTransaction));
 }
 
+/** Ambil semua riwayat transaksi bahan baku secara global untuk keperluan laporan */
+export async function getAllStockTransactions(limitCount: number = 100): Promise<StockTransaction[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, "stockTransactions"),
+      orderBy("createdAt", "desc"),
+      limit(limitCount)
+    )
+  );
+  return snap.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+    createdAt: d.data().createdAt?.toDate ? d.data().createdAt.toDate() : d.data().createdAt,
+  } as StockTransaction));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MATERIAL CATEGORIES
 // ─────────────────────────────────────────────────────────────────────────────

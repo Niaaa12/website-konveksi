@@ -10,6 +10,7 @@ import {
   type UnitKategori,
 } from "@/lib/firestore";
 import { cn } from "@/lib/utils";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   Plus,
   Loader2,
@@ -373,6 +374,9 @@ export default function UnitProduksiPage() {
   const [filterKategori, setFilterKategori] = useState<UnitKategori | "">("");
   const [filterStatus, setFilterStatus] = useState<string>("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
   const [editUnit, setEditUnit] = useState<ProductionUnit | null | "new">(null);
   const [deleteTarget, setDeleteTarget] = useState<ProductionUnit | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -394,6 +398,10 @@ export default function UnitProduksiPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterKategori, filterStatus]);
 
   async function handleSave(data: UnitForm, id?: string) {
     if (id) await updateProductionUnit(id, data);
@@ -428,6 +436,12 @@ export default function UnitProduksiPage() {
       }),
     [units, search, filterKategori, filterStatus]
   );
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   const kategoriCount = useMemo(() => {
     const map: Partial<Record<UnitKategori, number>> = {};
@@ -587,27 +601,18 @@ export default function UnitProduksiPage() {
 
       {/* ── Tabel ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <p className="text-xs text-muted-foreground">
-            Menampilkan{" "}
-            <span className="font-medium text-foreground">
-              {filtered.length}
-            </span>{" "}
-            dari {units.length} unit
-          </p>
-          {(search || filterKategori || filterStatus) && (
-            <button
-              onClick={() => {
-                setSearch("");
-                setFilterKategori("");
-                setFilterStatus("");
-              }}
-              className="text-xs text-[#003247] hover:underline flex items-center gap-1"
-            >
-              <X className="h-3 w-3" /> Reset filter
-            </button>
-          )}
-        </div>
+        {(search || filterKategori || filterStatus) && (
+          <button
+            onClick={() => {
+              setSearch("");
+              setFilterKategori("");
+              setFilterStatus("");
+            }}
+            className="text-xs text-[#003247] hover:underline flex items-center gap-1"
+          >
+            <X className="h-3 w-3" /> Reset filter
+          </button>
+        )}
 
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-center">
@@ -633,7 +638,7 @@ export default function UnitProduksiPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map((u) => {
+                {paginatedData.map((u) => {
                   const kCfg = KATEGORI_CFG[u.kategori] ?? KATEGORI_CFG.lainnya;
                   const sCfg = STATUS_CFG[u.status] ?? STATUS_CFG.idle;
                   const KIcon = kCfg.icon;
@@ -703,6 +708,13 @@ export default function UnitProduksiPage() {
             </table>
           </div>
         )}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={(page) => setCurrentPage(page)}
+        />
       </div>
 
       {/* ── Modal Form ── */}

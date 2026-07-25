@@ -22,7 +22,7 @@ import {
   Clock,
   Tags,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   getMaterials,
   createMaterial,
@@ -33,6 +33,7 @@ import {
   deleteMaterialCategory,
 } from "@/lib/firestore";
 import { MaterialHistoryModal } from "@/components/persediaan/MaterialHistoryModal";
+import { Pagination } from "@/components/ui/Pagination";
 
 const BRAND = "#003247";
 const BRAND_LIGHT = "#004766";
@@ -664,6 +665,12 @@ export default function BahanBakuPage() {
     { id: string; nama: string }[]
   >([]);
   const [modalKategoriOpen, setModalKategoriOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterKategori]);
 
   useEffect(() => {
     async function load() {
@@ -738,6 +745,11 @@ export default function BahanBakuPage() {
       b.kategori.toLowerCase() === filterKategori.toLowerCase();
     return matchSearch && matchKategori;
   });
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   const { stokKritis, stokHabis } = hitungStokKritis(data);
 
@@ -994,7 +1006,7 @@ export default function BahanBakuPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((b, idx) => (
+                paginatedData.map((b, idx) => (
                   <tr
                     key={b.id}
                     className={cn(
@@ -1074,19 +1086,13 @@ export default function BahanBakuPage() {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-          <p className="text-xs text-muted-foreground">
-            Menampilkan {filtered.length} dari {data.length} bahan baku
-          </p>
-          <div className="flex gap-1">
-            <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent disabled:opacity-50">
-              Sebelumnya
-            </button>
-            <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-accent">
-              Selanjutnya
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={(page) => setCurrentPage(page)}
+        />
       </div>
 
       <TambahBahanModal

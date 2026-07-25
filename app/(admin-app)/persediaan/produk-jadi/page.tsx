@@ -9,6 +9,7 @@ import {
   type ProductVariant,
   hitungVariantStokStatus,
 } from "@/lib/firestore";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   Search,
   Loader2,
@@ -54,6 +55,8 @@ export default function MasterProdukJadiPage() {
   const [transferError, setTransferError] = useState("");
 
   const [currentUserId, setCurrentUserId] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     const auth = getAuth();
@@ -61,6 +64,10 @@ export default function MasterProdukJadiPage() {
       setCurrentUserId(auth.currentUser.uid);
     }
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterStatus, filterWarehouse]);
 
   async function loadData() {
     setLoading(true);
@@ -118,6 +125,12 @@ export default function MasterProdukJadiPage() {
       return matchSearch && matchStatus && matchWarehouse;
     });
   }, [flatVariants, search, filterStatus, filterWarehouse]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   async function handleTransferSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -215,7 +228,9 @@ export default function MasterProdukJadiPage() {
         <div className="flex h-[40vh] items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-[#003247]" />
-            <p className="text-sm text-muted-foreground">Memuat data produk jadi...</p>
+            <p className="text-sm text-muted-foreground">
+              Memuat data produk jadi...
+            </p>
           </div>
         </div>
       ) : (
@@ -236,13 +251,19 @@ export default function MasterProdukJadiPage() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-10 text-muted-foreground text-xs">
+                    <td
+                      colSpan={7}
+                      className="text-center py-10 text-muted-foreground text-xs"
+                    >
                       Tidak ada produk jadi yang sesuai filter.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((v) => {
-                    const status = hitungVariantStokStatus(v.stokPacking, v.stokMin);
+                  paginatedData.map((v) => {
+                    const status = hitungVariantStokStatus(
+                      v.stokPacking,
+                      v.stokMin
+                    );
                     const statusLabel =
                       status === "habis"
                         ? "Habis"
@@ -257,11 +278,18 @@ export default function MasterProdukJadiPage() {
                         : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400";
 
                     return (
-                      <tr key={v.variantId} className="hover:bg-muted/10 transition-colors">
+                      <tr
+                        key={v.variantId}
+                        className="hover:bg-muted/10 transition-colors"
+                      >
                         <td className="px-5 py-4">
                           <div>
-                            <p className="font-semibold text-foreground">{v.productName}</p>
-                            <p className="text-[10px] text-muted-foreground">{v.productKode}</p>
+                            <p className="font-semibold text-foreground">
+                              {v.productName}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {v.productKode}
+                            </p>
                           </div>
                         </td>
                         <td className="px-5 py-4">
@@ -273,17 +301,31 @@ export default function MasterProdukJadiPage() {
                             />
                             <div>
                               <p className="text-xs font-medium">{v.warna}</p>
-                              <p className="text-[10px] text-muted-foreground">Ukuran: {v.ukuran}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                Ukuran: {v.ukuran}
+                              </p>
                             </div>
                           </div>
                         </td>
                         <td className="px-5 py-4 text-right font-mono font-medium">
-                          <span className={cn(v.stokBesar === 0 ? "text-muted-foreground" : "text-foreground")}>
+                          <span
+                            className={cn(
+                              v.stokBesar === 0
+                                ? "text-muted-foreground"
+                                : "text-foreground"
+                            )}
+                          >
                             {v.stokBesar.toLocaleString("id-ID")} pcs
                           </span>
                         </td>
                         <td className="px-5 py-4 text-right font-mono font-medium">
-                          <span className={cn(v.stokPacking === 0 ? "text-red-500 font-semibold" : "text-foreground")}>
+                          <span
+                            className={cn(
+                              v.stokPacking === 0
+                                ? "text-red-500 font-semibold"
+                                : "text-foreground"
+                            )}
+                          >
                             {v.stokPacking.toLocaleString("id-ID")} pcs
                           </span>
                         </td>
@@ -291,7 +333,12 @@ export default function MasterProdukJadiPage() {
                           {v.stokMin} pcs
                         </td>
                         <td className="px-5 py-4 text-center">
-                          <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold", statusClass)}>
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold",
+                              statusClass
+                            )}
+                          >
                             {statusLabel}
                           </span>
                         </td>
@@ -301,7 +348,17 @@ export default function MasterProdukJadiPage() {
                             <button
                               onClick={() => {
                                 setTransferTarget(v);
-                                setTransferJumlah(Math.min(v.stokMin - v.stokPacking, v.stokBesar) > 0 ? Math.min(v.stokMin - v.stokPacking, v.stokBesar) : 1);
+                                setTransferJumlah(
+                                  Math.min(
+                                    v.stokMin - v.stokPacking,
+                                    v.stokBesar
+                                  ) > 0
+                                    ? Math.min(
+                                        v.stokMin - v.stokPacking,
+                                        v.stokBesar
+                                      )
+                                    : 1
+                                );
                               }}
                               disabled={v.stokBesar <= 0}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors disabled:opacity-40"
@@ -313,7 +370,11 @@ export default function MasterProdukJadiPage() {
 
                             {/* Create WO Link */}
                             <Link
-                              href={`/produksi/work-order?productId=${v.productId}&variantId=${v.variantId}&jumlah=${v.stokMin * 3}`}
+                              href={`/produksi/work-order?productId=${
+                                v.productId
+                              }&variantId=${v.variantId}&jumlah=${
+                                v.stokMin * 3
+                              }`}
                               className="inline-flex items-center gap-1.5 rounded-lg bg-[#003247] px-2.5 py-1.5 text-xs font-medium text-white hover:bg-[#004a6e] transition-colors"
                               title="Buat Work Order Produksi Baru"
                             >
@@ -329,6 +390,13 @@ export default function MasterProdukJadiPage() {
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filtered.length}
+            pageSize={pageSize}
+            onPageChange={(page) => setCurrentPage(page)}
+          />
         </div>
       )}
 
@@ -352,25 +420,34 @@ export default function MasterProdukJadiPage() {
                 <div className="rounded-xl bg-muted/40 p-4 space-y-1.5 text-xs">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Produk:</span>
-                    <span className="font-semibold text-right">{transferTarget.productName}</span>
+                    <span className="font-semibold text-right">
+                      {transferTarget.productName}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Varian / Ukuran:</span>
+                    <span className="text-muted-foreground">
+                      Varian / Ukuran:
+                    </span>
                     <span className="font-medium text-right">
                       {transferTarget.warna} · {transferTarget.ukuran}
                     </span>
                   </div>
                   <hr className="border-border my-1.5" />
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Stok Gudang Besar:</span>
+                    <span className="text-muted-foreground">
+                      Stok Gudang Besar:
+                    </span>
                     <span className="font-mono font-semibold text-emerald-600">
                       {transferTarget.stokBesar} pcs
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Stok Gudang Packing:</span>
+                    <span className="text-muted-foreground">
+                      Stok Gudang Packing:
+                    </span>
                     <span className="font-mono text-muted-foreground">
-                      {transferTarget.stokPacking} pcs (min. {transferTarget.stokMin})
+                      {transferTarget.stokPacking} pcs (min.{" "}
+                      {transferTarget.stokMin})
                     </span>
                   </div>
                 </div>
@@ -378,14 +455,17 @@ export default function MasterProdukJadiPage() {
                 {/* Input jumlah */}
                 <div>
                   <label className="block text-xs font-medium mb-1.5">
-                    Jumlah Transfer (pcs) <span className="text-red-500">*</span>
+                    Jumlah Transfer (pcs){" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
                     min={1}
                     max={transferTarget.stokBesar}
                     value={transferJumlah}
-                    onChange={(e) => setTransferJumlah(Math.max(1, Number(e.target.value)))}
+                    onChange={(e) =>
+                      setTransferJumlah(Math.max(1, Number(e.target.value)))
+                    }
                     className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30"
                     required
                   />
@@ -396,7 +476,9 @@ export default function MasterProdukJadiPage() {
 
                 {/* Catatan */}
                 <div>
-                  <label className="block text-xs font-medium mb-1.5">Catatan</label>
+                  <label className="block text-xs font-medium mb-1.5">
+                    Catatan
+                  </label>
                   <textarea
                     rows={2}
                     value={transferCatatan}

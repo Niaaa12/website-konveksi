@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { StockTransaction, WarehouseTransfer, ProductOutflow, Material } from "@/lib/firestore";
 import { WarehouseMutationReport } from "./types";
 import { StatCard } from "@/components/dashboard/StatCard";
+import { WorkOrder, AppUser } from "@/lib/firestore";
 import {
   ArrowLeftRight,
   Truck,
@@ -21,6 +22,8 @@ interface LaporanMutasiTabProps {
   outflows: ProductOutflow[];
   materials: Material[];
   summary: WarehouseMutationReport;
+  workOrders: WorkOrder[]; 
+  operators: AppUser[];
 }
 
 export function LaporanMutasiTab({
@@ -29,23 +32,32 @@ export function LaporanMutasiTab({
   outflows,
   materials,
   summary,
+  workOrders, 
+  operators,
 }: LaporanMutasiTabProps) {
-  const [subTab, setSubTab] = useState<"transaksi" | "transfer" | "pengeluaran">("transaksi");
+  const [subTab, setSubTab] = useState<
+    "transaksi" | "transfer" | "pengeluaran"
+  >("transaksi");
   const [searchFilter, setSearchFilter] = useState("");
 
   const filteredTransactions = transactions.filter((t) => {
     const mat = materials.find((m) => m.id === t.materialId);
-    const text = `${mat ? mat.nama : ""} ${t.refTipe} ${t.refId} ${t.catatan} ${t.dilakukanOleh}`.toLowerCase();
+    const text = `${mat ? mat.nama : ""} ${t.refTipe} ${t.refId} ${t.catatan} ${
+      t.dilakukanOleh
+    }`.toLowerCase();
     return text.includes(searchFilter.toLowerCase());
   });
 
   const filteredTransfers = transfers.filter((tr) => {
-    const text = `${tr.nomorTransfer} ${tr.productName} ${tr.warna} ${tr.ukuran} ${tr.dibuatOleh}`.toLowerCase();
+    const text =
+      `${tr.nomorTransfer} ${tr.productName} ${tr.warna} ${tr.ukuran} ${tr.dibuatOleh}`.toLowerCase();
     return text.includes(searchFilter.toLowerCase());
   });
 
   const filteredOutflows = outflows.filter((out) => {
-    const text = `${out.nomorOutflow} ${out.productName} ${out.warna} ${out.ukuran} ${out.pelanggan || ""} ${out.dibuatOleh}`.toLowerCase();
+    const text = `${out.nomorOutflow} ${out.productName} ${out.warna} ${
+      out.ukuran
+    } ${out.pelanggan || ""} ${out.dibuatOleh}`.toLowerCase();
     return text.includes(searchFilter.toLowerCase());
   });
 
@@ -65,7 +77,9 @@ export function LaporanMutasiTab({
         <StatCard
           title="Total Transfer Gudang"
           value={String(summary.totalTransferGudang)}
-          subtitle={`Total: ${summary.totalJumlahTransfer.toLocaleString("id-ID")} pcs`}
+          subtitle={`Total: ${summary.totalJumlahTransfer.toLocaleString(
+            "id-ID"
+          )} pcs`}
           icon={Truck}
           iconBg="bg-purple-100 text-purple-700"
           trend="up"
@@ -74,7 +88,9 @@ export function LaporanMutasiTab({
         <StatCard
           title="Total Pengeluaran Produk"
           value={String(summary.totalPengeluaranProduk)}
-          subtitle={`Total: ${summary.totalJumlahPengeluaran.toLocaleString("id-ID")} pcs`}
+          subtitle={`Total: ${summary.totalJumlahPengeluaran.toLocaleString(
+            "id-ID"
+          )} pcs`}
           icon={Package}
           iconBg="bg-emerald-100 text-emerald-700"
           trend="up"
@@ -82,7 +98,9 @@ export function LaporanMutasiTab({
         />
         <StatCard
           title="Total Volume Mutasi"
-          value={`${(summary.totalJumlahTransfer + summary.totalJumlahPengeluaran).toLocaleString("id-ID")} pcs`}
+          value={`${(
+            summary.totalJumlahTransfer + summary.totalJumlahPengeluaran
+          ).toLocaleString("id-ID")} pcs`}
           subtitle="Aktivitas fisik persediaan"
           icon={ArrowLeftRight}
           iconBg="bg-[#003247]/10 text-[#003247]"
@@ -102,7 +120,8 @@ export function LaporanMutasiTab({
                 : "bg-card border border-border text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Boxes className="h-4 w-4" /> Transaksi Bahan Baku ({transactions.length})
+            <Boxes className="h-4 w-4" /> Transaksi Bahan Baku (
+            {transactions.length})
           </button>
           <button
             onClick={() => setSubTab("transfer")}
@@ -122,7 +141,8 @@ export function LaporanMutasiTab({
                 : "bg-card border border-border text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Package className="h-4 w-4" /> Pengeluaran Produk ({outflows.length})
+            <Package className="h-4 w-4" /> Pengeluaran Produk (
+            {outflows.length})
           </button>
         </div>
 
@@ -143,7 +163,8 @@ export function LaporanMutasiTab({
         <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">
-              Log Transaksi Persediaan Bahan Baku ({filteredTransactions.length})
+              Log Transaksi Persediaan Bahan Baku ({filteredTransactions.length}
+              )
             </h3>
           </div>
 
@@ -152,10 +173,16 @@ export function LaporanMutasiTab({
               <thead className="bg-muted/40 text-muted-foreground border-b border-border">
                 <tr>
                   <th className="py-3 px-4 font-semibold">Bahan Baku</th>
-                  <th className="py-3 px-4 font-semibold text-center">Jenis Transaksi</th>
+                  <th className="py-3 px-4 font-semibold text-center">
+                    Jenis Transaksi
+                  </th>
                   <th className="py-3 px-4 font-semibold text-right">Jumlah</th>
-                  <th className="py-3 px-4 font-semibold text-right">Stok Sebelum</th>
-                  <th className="py-3 px-4 font-semibold text-right">Stok Sesudah</th>
+                  <th className="py-3 px-4 font-semibold text-right">
+                    Stok Sebelum
+                  </th>
+                  <th className="py-3 px-4 font-semibold text-right">
+                    Stok Sesudah
+                  </th>
                   <th className="py-3 px-4 font-semibold">Referensi</th>
                   <th className="py-3 px-4 font-semibold">Dilakukan Oleh</th>
                   <th className="py-3 px-4 font-semibold">Catatan</th>
@@ -166,7 +193,10 @@ export function LaporanMutasiTab({
                   const mat = materials.find((m) => m.id === tx.materialId);
                   const isMasuk = tx.jenis === "masuk";
                   return (
-                    <tr key={tx.id} className="hover:bg-muted/30 transition-colors">
+                    <tr
+                      key={tx.id}
+                      className="hover:bg-muted/30 transition-colors"
+                    >
                       <td className="py-3 px-4 font-medium text-foreground">
                         {mat ? mat.nama : "Bahan Baku"}
                       </td>
@@ -190,7 +220,8 @@ export function LaporanMutasiTab({
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold">
-                        {isMasuk ? "+" : "-"}{tx.jumlah} {mat?.satuan || "pcs"}
+                        {isMasuk ? "+" : "-"}
+                        {tx.jumlah} {mat?.satuan || "pcs"}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-muted-foreground">
                         {tx.stokSebelum}
@@ -198,11 +229,36 @@ export function LaporanMutasiTab({
                       <td className="py-3 px-4 text-right font-mono font-semibold text-foreground">
                         {tx.stokSesudah}
                       </td>
-                      <td className="py-3 px-4 font-mono text-muted-foreground">
-                        {tx.refTipe} ({tx.refId || "-"})
+                      <td className="py-3 px-4 font-medium text-foreground">
+                        {(() => {
+                          if (tx.refTipe === "WO") {
+                            const matchedWO = workOrders.find(
+                              (w) => w.id === tx.refId
+                            );
+                            return matchedWO
+                              ? `WO: ${matchedWO.nomor}`
+                              : `WO (${
+                                  tx.refId ? tx.refId.slice(0, 6) : "-"
+                                }...)`;
+                          }
+                          return `${tx.refTipe} (${
+                            tx.refId ? tx.refId.slice(0, 6) : "-"
+                          }...)`;
+                        })()}
                       </td>
                       <td className="py-3 px-4 text-muted-foreground">
-                        {tx.dilakukanOleh || "-"}
+                        {(() => {
+                          const matchedUser = operators.find(
+                            (op) =>
+                              op.id === tx.dilakukanOleh ||
+                              op.email === tx.dilakukanOleh
+                          );
+                          return matchedUser
+                            ? matchedUser.nama
+                            : tx.dilakukanOleh === "Sistem"
+                            ? "Sistem Otomatis"
+                            : tx.dilakukanOleh || "-";
+                        })()}
                       </td>
                       <td className="py-3 px-4 text-muted-foreground max-w-[200px] truncate">
                         {tx.catatan || "-"}
@@ -212,7 +268,10 @@ export function LaporanMutasiTab({
                 })}
                 {filteredTransactions.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground text-xs">
+                    <td
+                      colSpan={8}
+                      className="py-8 text-center text-muted-foreground text-xs"
+                    >
                       Tidak ada transaksi stok bahan baku sesuai filter.
                     </td>
                   </tr>
@@ -228,7 +287,8 @@ export function LaporanMutasiTab({
         <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">
-              Log Transfer Gudang (Gudang Besar → Gudang Packing) ({filteredTransfers.length})
+              Log Transfer Gudang (Gudang Besar → Gudang Packing) (
+              {filteredTransfers.length})
             </h3>
           </div>
 
@@ -240,15 +300,22 @@ export function LaporanMutasiTab({
                   <th className="py-3 px-4 font-semibold">Produk</th>
                   <th className="py-3 px-4 font-semibold">Varian Warna</th>
                   <th className="py-3 px-4 font-semibold">Ukuran</th>
-                  <th className="py-3 px-4 font-semibold text-right">Jumlah Transfer</th>
-                  <th className="py-3 px-4 font-semibold text-right">Tanggal</th>
+                  <th className="py-3 px-4 font-semibold text-right">
+                    Jumlah Transfer
+                  </th>
+                  <th className="py-3 px-4 font-semibold text-right">
+                    Tanggal
+                  </th>
                   <th className="py-3 px-4 font-semibold">Dibuat Oleh</th>
                   <th className="py-3 px-4 font-semibold">Catatan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {filteredTransfers.map((tr) => (
-                  <tr key={tr.id} className="hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={tr.id}
+                    className="hover:bg-muted/30 transition-colors"
+                  >
                     <td className="py-3 px-4 font-mono font-medium text-foreground">
                       {tr.nomorTransfer}
                     </td>
@@ -277,7 +344,10 @@ export function LaporanMutasiTab({
                 ))}
                 {filteredTransfers.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground text-xs">
+                    <td
+                      colSpan={8}
+                      className="py-8 text-center text-muted-foreground text-xs"
+                    >
                       Tidak ada data transfer gudang sesuai filter.
                     </td>
                   </tr>
@@ -293,7 +363,8 @@ export function LaporanMutasiTab({
         <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">
-              Log Pengeluaran / Pengiriman Produk Jadi ({filteredOutflows.length})
+              Log Pengeluaran / Pengiriman Produk Jadi (
+              {filteredOutflows.length})
             </h3>
           </div>
 
@@ -305,15 +376,24 @@ export function LaporanMutasiTab({
                   <th className="py-3 px-4 font-semibold">Produk</th>
                   <th className="py-3 px-4 font-semibold">Varian Warna</th>
                   <th className="py-3 px-4 font-semibold">Ukuran</th>
-                  <th className="py-3 px-4 font-semibold text-right">Jumlah Keluar</th>
-                  <th className="py-3 px-4 font-semibold">Pelanggan / Tujuan</th>
-                  <th className="py-3 px-4 font-semibold text-right">Tanggal</th>
+                  <th className="py-3 px-4 font-semibold text-right">
+                    Jumlah Keluar
+                  </th>
+                  <th className="py-3 px-4 font-semibold">
+                    Pelanggan / Tujuan
+                  </th>
+                  <th className="py-3 px-4 font-semibold text-right">
+                    Tanggal
+                  </th>
                   <th className="py-3 px-4 font-semibold">Dibuat Oleh</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
                 {filteredOutflows.map((out) => (
-                  <tr key={out.id} className="hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={out.id}
+                    className="hover:bg-muted/30 transition-colors"
+                  >
                     <td className="py-3 px-4 font-mono font-medium text-foreground">
                       {out.nomorOutflow}
                     </td>
@@ -342,7 +422,10 @@ export function LaporanMutasiTab({
                 ))}
                 {filteredOutflows.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground text-xs">
+                    <td
+                      colSpan={8}
+                      className="py-8 text-center text-muted-foreground text-xs"
+                    >
                       Tidak ada data pengeluaran produk sesuai filter.
                     </td>
                   </tr>
