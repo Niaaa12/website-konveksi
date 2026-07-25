@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { getAuth } from "firebase/auth";
 import { cn } from "@/lib/utils";
+import { useRBAC } from "@/hooks/useRBAC";
 
 export default function TransferGudangPage() {
   const [transfers, setTransfers] = useState<any[]>([]);
@@ -45,6 +46,9 @@ export default function TransferGudangPage() {
 
   const [currentUserId, setCurrentUserId] = useState("");
   const [currentUserNama, setCurrentUserNama] = useState("");
+
+  const { can } = useRBAC();
+  const canWrite = can(["admin", "kepalaGudang"]);
 
   useEffect(() => {
     const auth = getAuth();
@@ -179,13 +183,15 @@ export default function TransferGudangPage() {
             Segarkan
           </button>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Catat Transfer
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Catat Transfer
+            </button>
+          )}
         </div>
       </div>
 

@@ -27,7 +27,7 @@ export function WODetailModal({
   units: ProductionUnit[];
   operators: AppUser[];
   onClose: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
 }) {
   const [tab, setTab] = useState<TabId>("info");
 
@@ -69,12 +69,14 @@ export function WODetailModal({
             </p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            <button
-              onClick={onEdit}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors"
-            >
-              <Pencil className="h-3 w-3" /> Edit
-            </button>
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+              >
+                <Pencil className="h-3 w-3" /> Edit
+              </button>
+            )}
             <button
               onClick={onClose}
               className="rounded-lg border border-border p-1.5 hover:bg-muted/50 transition-colors"

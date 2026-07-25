@@ -19,50 +19,51 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ────────────────────────────────────────────────────────────────────────
-    // HELPER FUNCTIONS
+    // HELPER FUNCTIONS (REVISED)
     // ────────────────────────────────────────────────────────────────────────
 
-    // Apakah user sudah login?
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Ambil role dari Firestore (cached per request oleh Firebase)
     function getRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Apakah akun masih aktif?
     function isAktif() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.aktif == true;
     }
 
-    // Pengecekan role (semua juga membutuhkan akun aktif)
+    // Role Individu & Gabungan yang Lebih Spesifik
     function isAdmin() {
       return isSignedIn() && isAktif() && getRole() == 'admin';
     }
 
+    // Manajer: Akses baca luas untuk monitoring, tanpa hak opreasional tulis harian
     function isManajer() {
-      return isSignedIn() && isAktif() && getRole() in ['admin', 'manajer'];
+      return isSignedIn() && isAktif() && getRole() == 'manajer';
     }
 
-    function isProduksi() {
-      return isSignedIn() && isAktif() && getRole() in ['admin', 'manajer', 'kepalaTimProduksi'];
+    // Kepala Tim Produksi & Admin (untuk operasional produksi)
+    function isProduksiHead() {
+      return isSignedIn() && isAktif() && getRole() in ['admin', 'kepalaTimProduksi'];
     }
 
-    function isGudang() {
-      return isSignedIn() && isAktif() && getRole() in ['admin', 'manajer', 'kepalaGudang'];
+    // Kepala Gudang & Admin (untuk operasional gudang & bahan baku)
+    function isGudangHead() {
+      return isSignedIn() && isAktif() && getRole() in ['admin', 'kepalaGudang'];
     }
 
-    function isPICProduksi() {
-      return isSignedIn() && isAktif() && getRole() in ['admin', 'manajer', 'picproduksi'];
+    // PIC Produksi (Staf lapangan)
+    function isPIC() {
+      return isSignedIn() && isAktif() && getRole() == 'picproduksi';
     }
 
+    // Semua staf yang aktif (untuk izin membaca data referensi/umum)
     function isAnyStaff() {
       return isSignedIn() && isAktif();
     }
 
-    // Apakah user adalah pemilik dokumen (untuk profil sendiri)?
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
@@ -73,7 +74,7 @@ service cloud.firestore {
     // Hanya admin yang bisa buat, hapus, dan baca semua user.
     // ────────────────────────────────────────────────────────────────────────
     match /users/{uid} {
-      allow read:   if isOwner(uid) || isAdmin() || isProduksi();
+      allow read:   if isAnyStaff();
       allow create: if isAdmin();
       allow update: if isOwner(uid) || isAdmin();
       allow delete: if isAdmin();
@@ -85,25 +86,25 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /materialCategories/{docId} {
       allow read:             if isAnyStaff();
-      allow create, update:   if isGudang() || isAdmin();
+      allow create, update:   if isGudangHead() || isAdmin();
       allow delete:           if isAdmin();
     }
 
     match /productCategories/{docId} {
       allow read:             if isAnyStaff();
-      allow create, update:   if isProduksi() || isAdmin();
+      allow create, update:   if isProduksiHead() || isAdmin();
       allow delete:           if isAdmin();
     }
 
     match /suppliers/{docId} {
       allow read:             if isAnyStaff();
-      allow create, update:   if isGudang();
+      allow create, update:   if isGudangHead();
       allow delete:           if isAdmin();
     }
 
     match /productionUnits/{docId} {
       allow read:             if isAnyStaff();
-      allow create, update:   if isProduksi() || isAdmin();
+      allow create, update:   if isProduksiHead() || isAdmin();
       allow delete:           if isAdmin();
     }
 
@@ -113,23 +114,24 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /products/{productId} {
       allow read:             if isAnyStaff();
-      allow create:           if isAdmin(); 
-      allow update:           if isAdmin() || isProduksi() || isPICProduksi();
+      allow create:           if isAdmin() || isProduksiHead(); 
+      allow update:           if isAdmin() || isProduksiHead();
       allow delete:           if isAdmin();
 
       // Varian warna produk
       match /variants/{variantId} {
         allow read:           if isAnyStaff();
-        allow create:         if isAdmin();
-        allow update:         if isAnyStaff();
+        allow create:         if isAdmin() || isProduksiHead();
+        allow update:         if isAdmin() || isProduksiHead() || 
+                              ((isGudangHead() || isPIC()) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stokJadi', 'stokGudangPacking', 'updatedAt']));
         allow delete:         if isAdmin();
       }
 
       // Bill of Materials — resep produksi
       match /bom/{bomId} {
         allow read:           if isAnyStaff();
-        allow create, update: if isAdmin();
-        allow delete:         if isAdmin();
+        allow create, update: if isAdmin() || isProduksiHead();
+        allow delete:         if isAdmin() || isProduksiHead();
       }
     }
 
@@ -139,8 +141,9 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /materials/{materialId} {
       allow read:             if isAnyStaff();
-      allow create:           if isGudang();
-      allow update:           if isGudang() || isProduksi(); 
+      allow create:           if isGudangHead();
+      allow update:           if isGudangHead() || 
+                              (isProduksiHead() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stokAktual', 'statusStok', 'updatedAt'])); 
       allow delete:           if isAdmin();
     }
 
@@ -154,15 +157,17 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /workOrders/{woId} {
       allow read:   if isAnyStaff();
-      allow create: if isProduksi();
+      allow create: if isProduksiHead();
       allow delete: if isAdmin();
-      allow update: if isProduksi() || isPICProduksi();
+      allow update: if isProduksiHead() || 
+                    (isPIC() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'tahapSaatIni', 'progress', 'jumlahSelesai', 'jumlahCacat', 'updatedAt', 'tanggalSelesai']));
 
       // Tahap produksi
       match /tahapProduksi/{tahapId} {
         allow read:   if isAnyStaff();
-        allow create: if isProduksi();
-        allow update: if isProduksi() || isPICProduksi();
+        allow create: if isProduksiHead();
+        allow update: if isProduksiHead() || 
+                      (isPIC() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'jumlahSelesai', 'jumlahCacat', 'catatanKendala', 'picId', 'updatedAt', 'selesaiAt']));
         allow delete: if isAdmin();
       }
 
@@ -170,7 +175,7 @@ service cloud.firestore {
       // Ini menjaga integritas audit trail
       match /progressLogs/{logId} {
         allow read:   if isAnyStaff();
-        allow create: if isProduksi()
+        allow create: if (isProduksiHead() || isPIC())
                       && request.resource.data.dicatatOleh == request.auth.uid;
         allow update: if isAdmin();  // hanya admin bisa koreksi log
         allow delete: if isAdmin();
@@ -179,7 +184,7 @@ service cloud.firestore {
       // Pemakaian bahan dalam WO — staf produksi bisa catat, tidak bisa hapus
       match /materialUsage/{usageId} {
         allow read:   if isAnyStaff();
-        allow create: if isProduksi()
+        allow create: if isProduksiHead()
                       && request.resource.data.dicatatOleh == request.auth.uid;
         allow update: if isAdmin();
         allow delete: if isAdmin();
@@ -203,7 +208,7 @@ service cloud.firestore {
     match /stockTransactions/{txId} {
       allow read:   if isAnyStaff();
 
-      allow create: if isGudang() || isProduksi();
+      allow create: if isGudangHead() || isProduksiHead();
 
       allow update: if false;
       allow delete: if isAdmin();
@@ -214,15 +219,15 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /goodsReceipts/{receiptId} {
       allow read:   if isAnyStaff();
-      allow create: if isGudang()
+      allow create: if isGudangHead()
                     && request.resource.data.diterimaOleh == request.auth.uid;
-      allow update: if isGudang() || isManajer();
+      allow update: if isGudangHead();
       allow delete: if isAdmin();
 
       // Detail item dalam penerimaan
       match /items/{itemId} {
         allow read:           if isAnyStaff();
-        allow create, update: if isGudang();
+        allow create, update: if isGudangHead();
         allow delete:         if isAdmin();
       }
     }
@@ -232,7 +237,7 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /warehouseTransfers/{id} {
       allow read:   if isAnyStaff();
-      allow create: if isAnyStaff();
+      allow create: if isGudangHead();
       allow update: if false;
       allow delete: if isAdmin();
     }
@@ -242,7 +247,7 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /productOutflows/{id} {
       allow read:   if isAnyStaff();
-      allow create: if isAnyStaff();
+      allow create: if isGudangHead();
       allow update: if false;
       allow delete: if isAdmin();
     }

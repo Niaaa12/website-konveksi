@@ -60,10 +60,10 @@ export function TahapProduksiPanel({
 
   const tahapSelesai = tahapList.filter((t) => t.status === "selesai").length;
   const adaMasalah = tahapList.filter((t) => t.status === "ada_masalah");
-  const outputPacking =
-    tahapList.find((t) => t.tahap === "packing")?.jumlahSelesai ?? 0;
+  const outputFinishing =
+    tahapList.find((t) => t.tahap === "finishing")?.jumlahSelesai ?? 0;
   const pctOutput =
-    jumlahTarget > 0 ? Math.round((outputPacking / jumlahTarget) * 100) : 0;
+    jumlahTarget > 0 ? Math.round((outputFinishing / jumlahTarget) * 100) : 0;
 
   return (
     <div className="space-y-4">

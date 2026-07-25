@@ -29,6 +29,7 @@ import {
   type UkuranHijab,
 } from "@/lib/firestore";
 import { cn } from "@/lib/utils";
+import { useRBAC } from "@/hooks/useRBAC";
 import {
   Plus,
   Search,
@@ -1291,7 +1292,7 @@ function ProductDetailModal({
   materials: Material[];
   variants: ProductVariant[]; // <-- 2. Tambahkan ini di tipe parameter
   onClose: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
   onVariantChange?: (productId: string, variants: ProductVariant[]) => void;
 }) {
   const [tab, setTab] = useState<DetailTab>("info");
@@ -1331,12 +1332,14 @@ function ProductDetailModal({
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={onEdit}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors"
-            >
-              <Pencil className="h-3 w-3" /> Edit
-            </button>
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted/50 transition-colors"
+              >
+                <Pencil className="h-3 w-3" /> Edit
+              </button>
+            )}
             <button
               onClick={onClose}
               className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/50 transition-colors"
@@ -1493,8 +1496,8 @@ function ProductCard({
   variantCount: number;
   stokKritisCount: number;
   onClick: () => void;
-  onEdit: (e: React.MouseEvent) => void;
-  onDelete: (e: React.MouseEvent) => void;
+  onEdit?: (e: React.MouseEvent) => void;
+  onDelete?: (e: React.MouseEvent) => void;
 }) {
   const kategoriNama =
     categories.find((c) => c.id === product.kategoriId)?.nama ?? "—";
@@ -1525,20 +1528,24 @@ function ProductCard({
             </h3>
           </div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-            <button
-              onClick={onEdit}
-              className="rounded-md border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
-              title="Edit"
-            >
-              <Pencil className="h-3 w-3" />
-            </button>
-            <button
-              onClick={onDelete}
-              className="rounded-md border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500 transition-colors"
-              title="Hapus"
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
+            {onEdit && (
+              <button
+                onClick={onEdit}
+                className="rounded-md border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
+                title="Edit"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="rounded-md border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500 transition-colors"
+                title="Hapus"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -1886,6 +1893,9 @@ export default function KatalogProdukPage() {
   const [deleting, setDeleting] = useState(false);
   const [showKategoriModal, setShowKategoriModal] = useState(false);
 
+  const { can } = useRBAC();
+  const canWrite = can(["admin", "kepalaTimProduksi"]);
+
   // Stable callback — tidak berubah referensi antar render, mencegah infinite loop
   // di VarianWarnaPanelInline yang pakai onVariantChange sebagai useCallback dep
   const handleVariantChange = useCallback(
@@ -2132,19 +2142,23 @@ export default function KatalogProdukPage() {
           ))}
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={() => setShowKategoriModal(true)}
-            className="self-start sm:self-auto flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-muted/60 transition-colors"
-          >
-            <Tag className="h-4 w-4" /> Kelola Kategori
-          </button>
-          <button
-            onClick={() => setEditProduct("new")}
-            className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
-          >
-            <Plus className="h-4 w-4" /> Tambah Produk
-          </button>
+          {canWrite && (
+            <button
+              type="button"
+              onClick={() => setShowKategoriModal(true)}
+              className="self-start sm:self-auto flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium hover:bg-muted/60 transition-colors"
+            >
+              <Tag className="h-4 w-4" /> Kelola Kategori
+            </button>
+          )}
+          {canWrite && (
+            <button
+              onClick={() => setEditProduct("new")}
+              className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
+            >
+              <Plus className="h-4 w-4" /> Tambah Produk
+            </button>
+          )}
           {showKategoriModal && (
             <KategoriModal
               categories={categories}
@@ -2181,14 +2195,14 @@ export default function KatalogProdukPage() {
               variantCount={(variantMap[p.id!] ?? []).length}
               stokKritisCount={stokKritisCount(p.id!)}
               onClick={() => setDetailProduct(p)}
-              onEdit={(e) => {
+              onEdit={canWrite ? (e) => {
                 e.stopPropagation();
                 setEditProduct(p);
-              }}
-              onDelete={(e) => {
+              } : undefined}
+              onDelete={canWrite ? (e) => {
                 e.stopPropagation();
                 setDeleteTarget(p);
-              }}
+              } : undefined}
             />
           ))}
         </div>
@@ -2202,10 +2216,10 @@ export default function KatalogProdukPage() {
           materials={materials}
           variants={variantMap[detailProduct.id!] || []} // <-- Tambahkan baris ini
           onClose={() => setDetailProduct(null)}
-          onEdit={() => {
+          onEdit={canWrite ? () => {
             setEditProduct(detailProduct);
             setDetailProduct(null);
-          }}
+          } : undefined}
           onVariantChange={handleVariantChange}
         />
       )}

@@ -34,6 +34,7 @@ import {
 } from "@/lib/firestore";
 import { MaterialHistoryModal } from "@/components/persediaan/MaterialHistoryModal";
 import { Pagination } from "@/components/ui/Pagination";
+import { useRBAC } from "@/hooks/useRBAC";
 
 const BRAND = "#003247";
 const BRAND_LIGHT = "#004766";
@@ -724,6 +725,9 @@ export default function BahanBakuPage() {
     }
   }
 
+  const { can } = useRBAC();
+  const canWrite = can(["admin", "kepalaGudang"]);
+
   async function handleDeleteKategori(id: string) {
     try {
       await deleteMaterialCategory(id);
@@ -876,22 +880,26 @@ export default function BahanBakuPage() {
           </div>
 
           {/* Tombol Kelola Kategori */}
-          <button
-            onClick={() => setModalKategoriOpen(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-card hover:bg-accent transition-colors shadow-sm whitespace-nowrap flex-1 sm:flex-none"
-          >
-            <Tags className="h-4 w-4" />
-            <span>Kelola Kategori</span>
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setModalKategoriOpen(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-card hover:bg-accent transition-colors shadow-sm whitespace-nowrap flex-1 sm:flex-none"
+            >
+              <Tags className="h-4 w-4" />
+              <span>Kelola Kategori</span>
+            </button>
+          )}
 
           {/* Tombol Tambah Bahan */}
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white bg-[#003247] hover:bg-[#004a6e] transition-all active:scale-[0.98] shadow-sm whitespace-nowrap flex-1 sm:flex-none"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Tambah Bahan</span>
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white bg-[#003247] hover:bg-[#004a6e] transition-all active:scale-[0.98] shadow-sm whitespace-nowrap flex-1 sm:flex-none"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Tambah Bahan</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1064,20 +1072,24 @@ export default function BahanBakuPage() {
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          onClick={() => setModalEdit(b)}
-                          title="Edit"
-                          className="rounded-lg p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setModalDelete(b)}
-                          title="Hapus"
-                          className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {canWrite && (
+                          <button
+                            onClick={() => setModalEdit(b)}
+                            title="Edit"
+                            className="rounded-lg p-1.5 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {canWrite && (
+                          <button
+                            onClick={() => setModalDelete(b)}
+                            title="Hapus"
+                            className="rounded-lg p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

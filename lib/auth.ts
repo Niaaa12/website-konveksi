@@ -16,15 +16,16 @@ export type UserRole = "admin" | "kepalaTimProduksi" | "kepalaGudang" | "manajer
 // Peta halaman → role yang boleh akses
 // Dipakai oleh middleware.ts dan AuthGuard
 export const HALAMAN_AKSES: Record<string, UserRole[]> = {
-  "/dashboard": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
-  "/work-order": ["admin", "manajer", "kepalaTimProduksi"],
-  "/jadwal": ["admin", "manajer", "kepalaTimProduksi"],
-  "/unitproduksi": ["admin", "manajer", "kepalaTimProduksi"],
-  "/bahan-baku": ["admin", "kepalaGudang"],
-  "/produk-jadi": ["admin", "kepalaGudang"],
-  "/transfer": ["admin", "kepalaGudang"],
-  "/pengeluaran": ["admin", "kepalaGudang"],
-  "/progress": ["admin", "manajer", "kepalaTimProduksi", "picproduksi"],
+  "/dashboard": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang", "picproduksi"],
+  "/produksi/work-order": ["admin", "manajer", "kepalaTimProduksi"],
+  "/produksi/jadwal": ["admin", "manajer", "kepalaTimProduksi"],
+  "/produksi/unitproduksi": ["admin", "manajer", "kepalaTimProduksi"],
+  "/persediaan/bahan-baku": ["admin", "manajer", "kepalaGudang"],
+  "/persediaan/produk-jadi": ["admin", "manajer", "kepalaGudang"],
+  "/persediaan/transfer": ["admin", "manajer", "kepalaGudang"],
+  "/persediaan/pengeluaran": ["admin", "manajer", "kepalaGudang"],
+  "/persediaan/penerimaan": ["admin", "manajer", "kepalaGudang"],
+  "/progress": ["kepalaTimProduksi", "picproduksi"],
   "/katalogproduk": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
   "/laporan": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
   "/pengguna": ["admin"],
@@ -33,11 +34,11 @@ export const HALAMAN_AKSES: Record<string, UserRole[]> = {
 
 // Halaman awal setelah login per role
 export const HALAMAN_AWAL: Record<UserRole, string> = {
-  admin:            "/dashboard",
-  manajer:          "/dashboard",
-  kepalaTimProduksi:  "/produksi/work-order",
-  picproduksi:     "/progress",     // langsung ke progress, bukan dashboard
-  kepalaGudang:    "/dashboard",
+  admin: "/dashboard",
+  manajer: "/dashboard",
+  kepalaTimProduksi: "/produksi/work-order",
+  picproduksi: "/progress",     // langsung ke progress, bukan dashboard
+  kepalaGudang: "/dashboard",
 };
 
 export interface UserProfile {

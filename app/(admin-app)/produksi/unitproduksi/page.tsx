@@ -11,6 +11,7 @@ import {
 } from "@/lib/firestore";
 import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
+import { useRBAC } from "@/hooks/useRBAC";
 import {
   Plus,
   Loader2,
@@ -381,6 +382,9 @@ export default function UnitProduksiPage() {
   const [deleteTarget, setDeleteTarget] = useState<ProductionUnit | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const { can } = useRBAC();
+  const canWrite = can(["admin", "kepalaTimProduksi"]);
+
   async function loadData() {
     setLoading(true);
     try {
@@ -590,12 +594,14 @@ export default function UnitProduksiPage() {
           ))}
         </select>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            onClick={() => setEditUnit("new")}
-            className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
-          >
-            <Plus className="h-4 w-4" /> Tambah Unit
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setEditUnit("new")}
+              className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
+            >
+              <Plus className="h-4 w-4" /> Tambah Unit
+            </button>
+          )}
         </div>
       </div>
 
@@ -685,20 +691,24 @@ export default function UnitProduksiPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => setEditUnit(u)}
-                            className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60"
-                            title="Edit"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(u)}
-                            className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500"
-                            title="Hapus"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {canWrite && (
+                            <button
+                              onClick={() => setEditUnit(u)}
+                              className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60"
+                              title="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {canWrite && (
+                            <button
+                              onClick={() => setDeleteTarget(u)}
+                              className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500"
+                              title="Hapus"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

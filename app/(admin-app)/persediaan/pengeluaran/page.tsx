@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { getAuth } from "firebase/auth";
 import { cn } from "@/lib/utils";
+import { useRBAC } from "@/hooks/useRBAC";
 
 export default function PengeluaranProdukPage() {
   const [outflows, setOutflows] = useState<any[]>([]);
@@ -46,6 +47,9 @@ export default function PengeluaranProdukPage() {
 
   const [currentUserId, setCurrentUserId] = useState("");
   const [currentUserNama, setCurrentUserNama] = useState("");
+
+  const { can } = useRBAC();
+  const canWrite = can(["admin", "kepalaGudang"]);
 
   useEffect(() => {
     const auth = getAuth();
@@ -183,13 +187,15 @@ export default function PengeluaranProdukPage() {
             Segarkan
           </button>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Catat Pengeluaran
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Catat Pengeluaran
+            </button>
+          )}
         </div>
       </div>
 

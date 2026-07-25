@@ -26,6 +26,7 @@ import {
 import Link from "next/link";
 import { getAuth } from "firebase/auth";
 import { cn } from "@/lib/utils";
+import { useRBAC } from "@/hooks/useRBAC";
 
 interface FlatVariant {
   productId: string;
@@ -57,6 +58,10 @@ export default function MasterProdukJadiPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+
+  const { can } = useRBAC();
+  const canTransfer = can(["admin", "kepalaGudang"]);
+  const canCreateWO = can(["admin", "kepalaTimProduksi"]);
 
   useEffect(() => {
     const auth = getAuth();
@@ -345,42 +350,46 @@ export default function MasterProdukJadiPage() {
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             {/* Transfer Button */}
-                            <button
-                              onClick={() => {
-                                setTransferTarget(v);
-                                setTransferJumlah(
-                                  Math.min(
-                                    v.stokMin - v.stokPacking,
-                                    v.stokBesar
-                                  ) > 0
-                                    ? Math.min(
-                                        v.stokMin - v.stokPacking,
-                                        v.stokBesar
-                                      )
-                                    : 1
-                                );
-                              }}
-                              disabled={v.stokBesar <= 0}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors disabled:opacity-40"
-                              title="Transfer dari Gudang Besar ke Packing"
-                            >
-                              <ArrowLeftRight className="h-3 w-3" />
-                              Transfer
-                            </button>
+                            {canTransfer && (
+                              <button
+                                onClick={() => {
+                                  setTransferTarget(v);
+                                  setTransferJumlah(
+                                    Math.min(
+                                      v.stokMin - v.stokPacking,
+                                      v.stokBesar
+                                    ) > 0
+                                      ? Math.min(
+                                          v.stokMin - v.stokPacking,
+                                          v.stokBesar
+                                        )
+                                      : 1
+                                  );
+                                }}
+                                disabled={v.stokBesar <= 0}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors disabled:opacity-40"
+                                title="Transfer dari Gudang Besar ke Packing"
+                              >
+                                <ArrowLeftRight className="h-3 w-3" />
+                                Transfer
+                              </button>
+                            )}
 
                             {/* Create WO Link */}
-                            <Link
-                              href={`/produksi/work-order?productId=${
-                                v.productId
-                              }&variantId=${v.variantId}&jumlah=${
-                                v.stokMin * 3
-                              }`}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-[#003247] px-2.5 py-1.5 text-xs font-medium text-white hover:bg-[#004a6e] transition-colors"
-                              title="Buat Work Order Produksi Baru"
-                            >
+                            {canCreateWO && (
+                              <Link
+                                href={`/produksi/work-order?productId=${
+                                  v.productId
+                                }&variantId=${v.variantId}&jumlah=${
+                                  v.stokMin * 3
+                                }`}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-[#003247] px-2.5 py-1.5 text-xs font-medium text-white hover:bg-[#004a6e] transition-colors"
+                                title="Buat Work Order Produksi Baru"
+                              >
                               <ClipboardList className="h-3 w-3" />
                               WO
                             </Link>
+                            )}
                           </div>
                         </td>
                       </tr>

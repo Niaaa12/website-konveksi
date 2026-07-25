@@ -21,6 +21,7 @@ import { initializeApp, deleteApp } from "firebase/app";
 import { app as firebaseApp, db } from "@/lib/firebase";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useRBAC } from "@/hooks/useRBAC";
 import {
   Search,
   Plus,
@@ -201,7 +202,7 @@ function DetailModal({
 }: {
   user: AppUser;
   onClose: () => void;
-  onEdit: () => void;
+  onEdit?: () => void;
 }) {
   const cfg = ROLE_CONFIG[user.role];
   const Icon = cfg.icon;
@@ -274,14 +275,16 @@ function DetailModal({
           ))}
         </div>
 
-        <div className="flex gap-2 px-6 pb-5">
-          <button
-            onClick={onEdit}
-            className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#003247] py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
-          >
-            <Pencil className="h-3.5 w-3.5" /> Edit Pengguna
-          </button>
-        </div>
+        {onEdit && (
+          <div className="flex gap-2 px-6 pb-5">
+            <button
+              onClick={onEdit}
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#003247] py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit Pengguna
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -615,6 +618,9 @@ export default function PenggunaPage() {
   const [resetSent, setResetSent] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
+  const { can } = useRBAC();
+  const canWrite = can(["admin"]);
+
   async function loadUsers() {
     setLoading(true);
     try {
@@ -844,12 +850,14 @@ export default function PenggunaPage() {
           ))}
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            onClick={() => setEditUser("new")}
-            className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
-          >
-            <Plus className="h-4 w-4" /> Tambah Pengguna
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => setEditUser("new")}
+              className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
+            >
+              <Plus className="h-4 w-4" /> Tambah Pengguna
+            </button>
+          )}
         </div>
       </div>
 
@@ -871,7 +879,7 @@ export default function PenggunaPage() {
             <p className="text-sm text-muted-foreground">
               Tidak ada pengguna ditemukan
             </p>
-            {!search && !filterRole && filterAktif === "semua" && (
+            {!search && !filterRole && filterAktif === "semua" && canWrite && (
               <button
                 onClick={() => setEditUser("new")}
                 className="mt-2 text-xs text-[#003247] hover:underline"
@@ -943,55 +951,59 @@ export default function PenggunaPage() {
                         >
                           <UserCircle2 className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          onClick={() => setEditUser(user)}
-                          className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        {/* More menu */}
-                        <div className="relative">
+                        {canWrite && (
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenMenu(
-                                openMenu === user.id ? null : user.id
-                              );
-                            }}
+                            onClick={() => setEditUser(user)}
                             className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
+                            title="Edit"
                           >
-                            <MoreVertical className="h-3.5 w-3.5" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </button>
-                          {openMenu === user.id && (
-                            <div
-                              className="absolute right-0 top-8 z-20 w-44 rounded-xl border border-border bg-card shadow-lg overflow-hidden"
-                              onClick={(e) => e.stopPropagation()}
+                        )}
+                        {/* More menu */}
+                        {canWrite && (
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenu(
+                                  openMenu === user.id ? null : user.id
+                                );
+                              }}
+                              className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
                             >
-                              <button
-                                onClick={() => {
-                                  setResetTarget(user);
-                                  setResetSent(false);
-                                  setOpenMenu(null);
-                                }}
-                                className="flex w-full items-center gap-2 px-3 py-2.5 text-xs hover:bg-muted/60 transition-colors"
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </button>
+                            {openMenu === user.id && (
+                              <div
+                                className="absolute right-0 top-8 z-20 w-44 rounded-xl border border-border bg-card shadow-lg overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />{" "}
-                                Reset Password
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setDeleteTarget(user);
-                                  setOpenMenu(null);
-                                }}
-                                className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" /> Hapus
-                                Pengguna
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                                <button
+                                  onClick={() => {
+                                    setResetTarget(user);
+                                    setResetSent(false);
+                                    setOpenMenu(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs hover:bg-muted/60 transition-colors"
+                                >
+                                  <KeyRound className="h-3.5 w-3.5 text-muted-foreground" />{" "}
+                                  Reset Password
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDeleteTarget(user);
+                                    setOpenMenu(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" /> Hapus
+                                  Pengguna
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1007,10 +1019,10 @@ export default function PenggunaPage() {
         <DetailModal
           user={detail}
           onClose={() => setDetail(null)}
-          onEdit={() => {
+          onEdit={canWrite ? () => {
             setEditUser(detail);
             setDetail(null);
-          }}
+          } : undefined}
         />
       )}
 

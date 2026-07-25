@@ -33,6 +33,7 @@ import {
 import { WODetailModal } from "@/components/work-order/WODetailModal";
 import { WODeleteConfirm } from "@/components/work-order/WODeleteConfirm";
 import { Pagination } from "@/components/ui/Pagination";
+import { useRBAC } from "@/hooks/useRBAC";
 import {
   Plus,
   Loader2,
@@ -109,6 +110,8 @@ function WorkOrderPageContent() {
   const [deleting, setDeleting] = useState(false);
 
   const searchParams = useSearchParams();
+  const { can } = useRBAC();
+  const canWrite = can(["admin", "kepalaTimProduksi"]);
   const paramProductId = searchParams.get("productId");
   const paramVariantId = searchParams.get("variantId");
   const paramJumlah = searchParams.get("jumlah");
@@ -346,12 +349,14 @@ function WorkOrderPageContent() {
             </option>
           ))}
         </select>
-        <button
-          onClick={() => setEditWO("new")}
-          className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Buat WO
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setEditWO("new")}
+            className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Buat WO
+          </button>
+        )}
       </div>
 
       {/* ── Tabel ── */}
@@ -378,12 +383,14 @@ function WorkOrderPageContent() {
                 ? "Tidak ada hasil yang cocok"
                 : "Belum ada work order"}
             </p>
-            <button
-              onClick={() => setEditWO("new")}
-              className="mt-2 text-xs text-[#003247] hover:underline"
-            >
-              + Buat work order pertama
-            </button>
+            {canWrite && (
+              <button
+                onClick={() => setEditWO("new")}
+                className="mt-2 text-xs text-[#003247] hover:underline"
+              >
+                + Buat work order pertama
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -486,20 +493,24 @@ function WorkOrderPageContent() {
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </button>
-                          <button
-                            onClick={() => setEditWO(wo)}
-                            className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60"
-                            title="Edit"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(wo)}
-                            className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500"
-                            title="Hapus"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {canWrite && (
+                            <button
+                              onClick={() => setEditWO(wo)}
+                              className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60"
+                              title="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {canWrite && (
+                            <button
+                              onClick={() => setDeleteTarget(wo)}
+                              className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500"
+                              title="Hapus"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -526,10 +537,10 @@ function WorkOrderPageContent() {
           units={units}
           operators={operators}
           onClose={() => setDetailWO(null)}
-          onEdit={() => {
+          onEdit={canWrite ? () => {
             setEditWO(detailWO);
             setDetailWO(null);
-          }}
+          } : undefined}
         />
       )}
       {editWO && (

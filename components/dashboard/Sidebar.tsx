@@ -1,10 +1,6 @@
 "use client";
 
 import {
-  ArrowLeftRight,
-  BarChart2,
-  BarChart3,
-  Bell,
   BookOpen,
   Boxes,
   Calendar,
@@ -15,21 +11,17 @@ import {
   LayoutDashboard,
   Package,
   Settings,
-  ShoppingCart,
-  Tag,
   Truck,
   Users,
   X,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { SidebarStokKritisSection } from "@/components/alert/SidebarStokKritisSection";
 import { HALAMAN_AKSES, type UserRole } from "@/lib/auth";
-import { useEffect, useState } from "react";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { useAuth } from "@/context/AuthContext";
 
 const menuItems = [
   {
@@ -103,37 +95,10 @@ function getInitial(nama: string) {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const { user } = useAuth();
 
-  const [userData, setUserData] = useState<{
-    nama: string;
-    email: string;
-    role: UserRole;
-  } | null>(null);
-
-  useEffect(() => {
-    const auth = getAuth();
-
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
-
-      const snap = await getDoc(doc(db, "users", user.uid));
-
-      if (!snap.exists()) return;
-
-      const data = snap.data();
-
-      setUserRole(data.role as UserRole);
-      
-      setUserData({
-        nama: data.nama,
-        email: data.email,
-        role: data.role,
-      });
-    });
-
-    return () => unsub();
-  }, []);
+  const userRole = (user?.role as UserRole) ?? null;
+  const userData = user ? { nama: user.nama, email: user.email, role: user.role as UserRole } : null;
 
   const menuTersedia = menuItems
     .map((item) => {

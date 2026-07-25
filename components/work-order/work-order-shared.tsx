@@ -115,11 +115,12 @@ export const TAHAP_STATUS_CFG: Record<
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TAHAP_LABEL: Record<TahapId, { label: string; labelPendek: string }> = {
+  pola:      { label: "Pembuatan Pola",   labelPendek: "Pola"      },
   potong:    { label: "Pemotongan Kain",  labelPendek: "Potong"    },
   jahit:     { label: "Penjahitan",       labelPendek: "Jahit"     },
   obras:     { label: "Obras",            labelPendek: "Obras"     },
+  qc:        { label: "Quality Control",  labelPendek: "QC"        },
   finishing: { label: "Finishing & QC",   labelPendek: "Finishing" },
-  packing:   { label: "Packing",          labelPendek: "Packing"   },
 };
 
 export const PRIORITAS_CFG: Record<
@@ -163,11 +164,12 @@ export function TahapBadge({ tahap }: { tahap?: TahapId | string }) {
     return <span className="text-[10px] text-muted-foreground">{tahap}</span>;
 
   const colorMap: Record<TahapId, string> = {
+    pola:      "bg-blue-100 text-blue-700",
     potong:    "bg-sky-100 text-sky-700",
     jahit:     "bg-green-100 text-green-700",
     obras:     "bg-orange-100 text-orange-700",
+    qc:        "bg-yellow-100 text-yellow-700",
     finishing: "bg-purple-100 text-purple-700",
-    packing:   "bg-pink-100 text-pink-700",
   };
 
   return (

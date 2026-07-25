@@ -42,17 +42,20 @@ export type RBACPermissions = Partial<Record<string, UserRole[]>>;
 //   "/persediaan/bahan-baku":["admin", "gudang", "manajer"],
 
 export const ROUTE_PERMISSIONS: RBACPermissions = {
-  // ── Isi di sini setelah role user di Firestore sudah diatur ──────────
-  // "/pengguna":              ["admin"],
-  // "/laporan":               ["admin", "manajer"],
-  // "/katalogproduk":         ["admin", "manajer"],
-  // "/produksi/work-order":   ["admin", "manajer", "produksi"],
-  // "/produksi/jadwal":       ["admin", "manajer", "produksi"],
-  // "/produksi/unitproduksi": ["admin", "manajer"],
-  // "/persediaan/bahan-baku": ["admin", "gudang", "manajer"],
-  // "/persediaan/penerimaan": ["admin", "gudang"],
-  // "/persediaan/pengeluaran":["admin", "gudang"],
-  // "/progress":              ["admin", "produksi"],
+  "/dashboard": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang", "picproduksi"],
+  "/produksi/work-order": ["admin", "manajer", "kepalaTimProduksi"],
+  "/produksi/jadwal": ["admin", "manajer", "kepalaTimProduksi"],
+  "/produksi/unitproduksi": ["admin", "manajer", "kepalaTimProduksi"],
+  "/persediaan/bahan-baku": ["admin", "manajer", "kepalaGudang"],
+  "/persediaan/produk-jadi": ["admin", "manajer", "kepalaGudang"],
+  "/persediaan/transfer": ["admin", "manajer", "kepalaGudang"],
+  "/persediaan/pengeluaran": ["admin", "manajer", "kepalaGudang"],
+  "/persediaan/penerimaan": ["admin", "manajer", "kepalaGudang"],
+  "/progress": ["admin", "manajer", "kepalaTimProduksi", "picproduksi"],
+  "/katalogproduk": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
+  "/laporan": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
+  "/pengguna": ["admin"],
+  "/pengaturan": ["admin", "manajer"],
 };
 
 // ── Helper ────────────────────────────────────────────────────────────────

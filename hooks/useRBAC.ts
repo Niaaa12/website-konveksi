@@ -59,10 +59,11 @@ interface UseRBACReturn {
   isManajer: boolean;
   isProduksi: boolean;
   isGudang: boolean;
+  isPICProduksi: boolean;
 }
 
 export function useRBAC(): UseRBACReturn {
-  const { user, isAdmin, isManajer, isProduksi, isGudang } = useAuth();
+  const { user, isAdmin, isManajer, isProduksi, isGudang, isPICProduksi } = useAuth();
 
   const role = user?.role;
   const isAuthenticated = !!user;
@@ -85,5 +86,6 @@ export function useRBAC(): UseRBACReturn {
     isManajer,
     isProduksi,
     isGudang,
+    isPICProduksi,
   };
 }

@@ -35,7 +35,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       }
 
       // Cek apakah role ini boleh akses halaman sekarang
-      const roleYangBoleh = HALAMAN_AKSES[pathname];
+      const cleanPath = pathname.endsWith("/") && pathname !== "/" ? pathname.slice(0, -1) : pathname;
+      const roleYangBoleh = HALAMAN_AKSES[cleanPath];
       if (roleYangBoleh && !roleYangBoleh.includes(role)) {
         // Tidak punya akses → arahkan ke halaman awal sesuai role
         router.replace(HALAMAN_AWAL[role]);

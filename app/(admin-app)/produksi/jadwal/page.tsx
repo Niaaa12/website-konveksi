@@ -26,6 +26,7 @@ import {
 import { WODetailModal } from "@/components/work-order/WODetailModal";
 import { WODeleteConfirm } from "@/components/work-order/WODeleteConfirm";
 import { cn } from "@/lib/utils";
+import { useRBAC } from "@/hooks/useRBAC";
 import {
   ChevronLeft,
   ChevronRight,
@@ -360,6 +361,9 @@ export default function JadwalProduksiPage() {
   const [deleteTarget, setDeleteTarget] = useState<WorkOrder | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const { can } = useRBAC();
+  const canWrite = can(["admin", "kepalaTimProduksi"]);
+
   async function loadData() {
     setLoading(true);
     const [wos, prods, us, ops] = await Promise.all([
@@ -535,12 +539,14 @@ export default function JadwalProduksiPage() {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setEditWO("new")}
-          className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
-        >
-          <Plus className="h-4 w-4" /> Buat WO
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setEditWO("new")}
+            className="self-start sm:self-auto flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#004a6e] transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Buat WO
+          </button>
+        )}
       </div>
 
       {/* ── VIEWS ── */}
@@ -625,10 +631,10 @@ export default function JadwalProduksiPage() {
           units={units}
           operators={operators}
           onClose={() => setDetailWO(null)}
-          onEdit={() => {
+          onEdit={canWrite ? () => {
             setEditWO(detailWO);
             setDetailWO(null);
-          }}
+          } : undefined}
         />
       )}
       {editWO && (
