@@ -468,9 +468,14 @@ function VarianWarnaPanelInline({
     setError("");
     try {
       if (editTarget?.id) {
-        await updateProductVariant(productId, editTarget.id, form);
+        // Sisipkan status lama (jika ada) atau default "Aktif"
+        await updateProductVariant(productId, editTarget.id, {
+          ...form,
+          status: editTarget.status || "Aktif",
+        });
       } else {
-        await createProductVariant(productId, form);
+        // Sisipkan status default "Aktif" saat membuat baru
+        await createProductVariant(productId, { ...form, status: "Aktif" });
       }
       tutupForm();
       await load();
@@ -850,12 +855,14 @@ function VarianWarnaPanelInline({
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface BomForm {
+  ukuran: string; // <-- Tambahan ukuran
   materialId: string;
   jumlahPerUnit: number;
   satuan: string;
   catatan: string;
 }
 const EMPTY_BOM: BomForm = {
+  ukuran: "",
   materialId: "",
   jumlahPerUnit: 0,
   satuan: "meter",
@@ -876,9 +883,11 @@ const SATUAN_OPTIONS = [
 function BomPanelInline({
   productId,
   materials,
+  variants, // <-- Terima props variants
 }: {
   productId: string;
   materials: Material[];
+  variants: ProductVariant[];
 }) {
   const [bomList, setBomList] = useState<BomItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -888,7 +897,21 @@ function BomPanelInline({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Map materialId → Material untuk tampilan nama
+  // 1. Ekstrak ukuran unik dari daftar varian
+  const availableSizes = Array.from(
+    new Set(variants.map((v) => v.ukuran || "All Size"))
+  );
+
+  // 2. State untuk melacak ukuran yang aktif
+  const [selectedSize, setSelectedSize] = useState<string>("");
+
+  // Set default size
+  useEffect(() => {
+    if (availableSizes.length > 0 && !selectedSize) {
+      setSelectedSize(availableSizes[0]);
+    }
+  }, [availableSizes, selectedSize]);
+
   const matMap = useMemo(() => {
     const m: Record<string, Material> = {};
     materials.forEach((mat) => {
@@ -910,11 +933,15 @@ function BomPanelInline({
     load();
   }, [load]);
 
+  // 3. Filter BOM berdasarkan ukuran yang dipilih
+  const currentBoms = bomList.filter((bom) => bom.ukuran === selectedSize);
+
   function bukaForm(b?: BomItem) {
     setError("");
     if (b) {
       setEditTarget(b);
       setForm({
+        ukuran: b.ukuran,
         materialId: b.materialId,
         jumlahPerUnit: b.jumlahPerUnit,
         satuan: b.satuan,
@@ -922,10 +949,11 @@ function BomPanelInline({
       });
     } else {
       setEditTarget(null);
-      setForm({ ...EMPTY_BOM });
+      setForm({ ...EMPTY_BOM, ukuran: selectedSize }); // Set ukuran otomatis saat tambah baru
     }
     setFormOpen(true);
   }
+
   function tutupForm() {
     setFormOpen(false);
     setEditTarget(null);
@@ -941,21 +969,26 @@ function BomPanelInline({
       setError("Jumlah per unit harus lebih dari 0.");
       return;
     }
-    // Cegah duplikat materialId (kecuali saat edit item yang sama)
+    // Cek duplikat material di ukuran yang SAMA
     const sudahAda = bomList.some(
-      (b) => b.materialId === form.materialId && b.id !== editTarget?.id
+      (b) =>
+        b.materialId === form.materialId &&
+        b.ukuran === form.ukuran &&
+        b.id !== editTarget?.id
     );
     if (sudahAda) {
-      setError("Bahan ini sudah ada di daftar BOM.");
+      setError(`Bahan ini sudah ada di daftar BOM ukuran ${form.ukuran}.`);
       return;
     }
+
     setSaving(true);
     setError("");
     try {
       if (editTarget?.id) {
-        await updateBomItem(productId, editTarget.id, form);
+        // Sisipkan productId agar tipe data BomItem terpenuhi
+        await updateBomItem(productId, editTarget.id, { ...form, productId });
       } else {
-        await createBomItem(productId, form);
+        await createBomItem(productId, { ...form, productId });
       }
       tutupForm();
       await load();
@@ -969,228 +1002,270 @@ function BomPanelInline({
   async function handleDelete(b: BomItem) {
     if (!b.id) return;
     const mat = matMap[b.materialId];
-    if (!confirm(`Hapus bahan "${mat?.nama ?? b.materialId}" dari BOM?`))
+    if (
+      !confirm(
+        `Hapus bahan "${mat?.nama ?? b.materialId}" dari BOM ukuran ${
+          b.ukuran
+        }?`
+      )
+    )
       return;
     await deleteBomItem(productId, b.id);
     await load();
   }
 
-  // Bahan yang belum ada di BOM (untuk dropdown pilih bahan)
   const bahanBelumDipilih = materials.filter(
     (m) =>
       m.id &&
-      !bomList.some((b) => b.materialId === m.id && b.id !== editTarget?.id)
+      !currentBoms.some((b) => b.materialId === m.id && b.id !== editTarget?.id)
   );
 
   return (
-    <div className="space-y-3">
-      {/* Daftar BOM */}
-      {loading ? (
-        <div className="flex justify-center py-6">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : bomList.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center">
-          <BookOpen className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-          <p className="text-xs text-muted-foreground">
-            Belum ada resep bahan (BOM)
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Tambahkan bahan yang dibutuhkan untuk membuat produk ini
-          </p>
+    <div className="space-y-4">
+      {/* --- Switcher Ukuran --- */}
+      {availableSizes.length > 0 ? (
+        <div className="flex flex-col space-y-2 mb-2">
+          <span className="text-xs text-muted-foreground font-medium">
+            Pilih Ukuran:
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {availableSizes.map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => setSelectedSize(size)}
+                className={cn(
+                  "rounded-full px-4 py-1.5 text-xs font-medium transition-colors border",
+                  selectedSize === size
+                    ? "bg-[#003247] text-white border-[#003247]"
+                    : "bg-background text-muted-foreground border-border hover:bg-muted"
+                )}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/30 border-b border-border text-[10px] font-medium text-muted-foreground">
-                <th className="px-3 py-2 text-left">Bahan Baku</th>
-                <th className="px-3 py-2 text-right">Jumlah / Unit</th>
-                <th className="px-3 py-2 text-left">Satuan</th>
-                <th className="px-3 py-2 text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {bomList.map((b) => {
-                const mat = matMap[b.materialId];
-                return (
-                  <tr
-                    key={b.id}
-                    className="hover:bg-muted/10 transition-colors"
-                  >
-                    <td className="px-3 py-2.5">
-                      <p className="text-xs font-medium">
-                        {mat?.nama ?? b.materialId}
-                      </p>
-                      {mat && (
-                        <p className="text-[10px] text-muted-foreground">
-                          {mat.kode} · Stok:{" "}
-                          {mat.stokAktual.toLocaleString("id-ID")} {mat.satuan}
-                        </p>
-                      )}
-                      {b.catatan && (
-                        <p className="text-[10px] text-muted-foreground italic">
-                          {b.catatan}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-xs font-semibold">
-                      {b.jumlahPerUnit}
-                    </td>
-                    <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                      {b.satuan}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => bukaForm(b)}
-                          className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(b)}
-                          className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500 transition-colors"
-                          title="Hapus"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700">
+          ⚠️ Tambahkan varian warna/ukuran terlebih dahulu di tab Varian Warna.
         </div>
       )}
 
-      {/* Form tambah/edit BOM (inline) */}
-      {formOpen ? (
-        <div className="rounded-xl border border-[#003247]/30 bg-[#003247]/5 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold">
-              {editTarget ? "Edit Bahan" : "Tambah Bahan"}
-            </p>
-            <button
-              onClick={tutupForm}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          {error && (
-            <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-[11px] text-red-700">
-              <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" /> {error}
+      {selectedSize && (
+        <div className="space-y-3">
+          {/* Daftar BOM */}
+          {loading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : currentBoms.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center">
+              <BookOpen className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">
+                Belum ada resep bahan untuk ukuran{" "}
+                <strong>{selectedSize}</strong>
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 border-b border-border flex justify-between items-center">
+                <span className="text-xs font-semibold">
+                  Resep: Ukuran {selectedSize}
+                </span>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/10 border-b border-border text-[10px] font-medium text-muted-foreground">
+                    <th className="px-3 py-2 text-left">Bahan Baku</th>
+                    <th className="px-3 py-2 text-right">Jumlah / Unit</th>
+                    <th className="px-3 py-2 text-left">Satuan</th>
+                    <th className="px-3 py-2 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {currentBoms.map((b) => {
+                    const mat = matMap[b.materialId];
+                    return (
+                      <tr
+                        key={b.id}
+                        className="hover:bg-muted/10 transition-colors"
+                      >
+                        <td className="px-3 py-2.5">
+                          <p className="text-xs font-medium">
+                            {mat?.nama ?? b.materialId}
+                          </p>
+                          {mat && (
+                            <p className="text-[10px] text-muted-foreground">
+                              {mat.kode} · Stok:{" "}
+                              {mat.stokAktual.toLocaleString("id-ID")}{" "}
+                              {mat.satuan}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-xs font-semibold">
+                          {b.jumlahPerUnit}
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                          {b.satuan}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => bukaForm(b)}
+                              className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60"
+                              title="Edit"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(b)}
+                              className="rounded-lg border border-red-200 bg-background p-1.5 text-red-500 hover:bg-red-50"
+                              title="Hapus"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-          <div>
-            <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
-              Bahan Baku <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={form.materialId}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, materialId: e.target.value }))
-              }
-              className={selectClass}
-            >
-              <option value="">Pilih bahan baku</option>
-              {/* Kalau edit, tampilkan bahan yang sedang diedit juga */}
-              {editTarget && matMap[editTarget.materialId] && (
-                <option value={editTarget.materialId}>
-                  {matMap[editTarget.materialId].nama}
-                </option>
+
+          {/* Form Tambah/Edit inline */}
+          {formOpen ? (
+            <div className="rounded-xl border border-[#003247]/30 bg-[#003247]/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold">
+                  {editTarget
+                    ? `Edit Bahan (Ukuran ${selectedSize})`
+                    : `Tambah Bahan (Ukuran ${selectedSize})`}
+                </p>
+                <button
+                  onClick={tutupForm}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* === Sisa Form persis sama dengan kodemu sebelumnya (Pilih bahan, input jumlah, satuan, dsb) === */}
+              {error && (
+                <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-[11px] text-red-700">
+                  <AlertCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />{" "}
+                  {error}
+                </div>
               )}
-              {bahanBelumDipilih.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nama} ({m.kode}) — stok: {m.stokAktual} {m.satuan}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
-                Jumlah per Unit <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={form.jumlahPerUnit}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    jumlahPerUnit: Number(e.target.value),
-                  }))
-                }
-                className={inputClass}
-              />
+              <div>
+                <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
+                  Bahan Baku <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={form.materialId}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, materialId: e.target.value }))
+                  }
+                  className={selectClass}
+                >
+                  <option value="">Pilih bahan baku</option>
+                  {editTarget && matMap[editTarget.materialId] && (
+                    <option value={editTarget.materialId}>
+                      {matMap[editTarget.materialId].nama}
+                    </option>
+                  )}
+                  {bahanBelumDipilih.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nama} ({m.kode}) — stok: {m.stokAktual} {m.satuan}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
+                    Jumlah per Unit <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={form.jumlahPerUnit}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        jumlahPerUnit: Number(e.target.value),
+                      }))
+                    }
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
+                    Satuan
+                  </label>
+                  <select
+                    value={form.satuan}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, satuan: e.target.value }))
+                    }
+                    className={selectClass}
+                  >
+                    {SATUAN_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
+                  Catatan (opsional)
+                </label>
+                <input
+                  value={form.catatan}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, catatan: e.target.value }))
+                  }
+                  className={inputClass}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={tutupForm}
+                  className="rounded-xl border border-border px-3 py-2 text-xs hover:bg-muted/50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-xl bg-[#003247] px-3 py-2 text-xs font-medium text-white hover:bg-[#004a6e] disabled:opacity-60"
+                >
+                  {saving ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Check className="h-3 w-3" />
+                  )}
+                  {editTarget ? "Simpan" : "Tambah"}
+                </button>
+              </div>
             </div>
-            <div>
-              <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
-                Satuan
-              </label>
-              <select
-                value={form.satuan}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, satuan: e.target.value }))
-                }
-                className={selectClass}
-              >
-                {SATUAN_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-[11px] font-medium text-muted-foreground">
-              Catatan (opsional)
-            </label>
-            <input
-              value={form.catatan}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, catatan: e.target.value }))
-              }
-              placeholder="mis. kain utama, bukan furing"
-              className={inputClass}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
+          ) : (
             <button
-              type="button"
-              onClick={tutupForm}
-              className="rounded-xl border border-border px-3 py-2 text-xs hover:bg-muted/50"
+              onClick={() => bukaForm()}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-2.5 text-xs text-muted-foreground hover:bg-muted/30 transition-colors"
             >
-              Batal
+              <Plus className="h-3.5 w-3.5" /> Tambah Bahan (Ukuran{" "}
+              {selectedSize})
             </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 rounded-xl bg-[#003247] px-3 py-2 text-xs font-medium text-white hover:bg-[#004a6e] disabled:opacity-60"
-            >
-              {saving ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Check className="h-3 w-3" />
-              )}
-              {editTarget ? "Simpan" : "Tambah"}
-            </button>
-          </div>
+          )}
         </div>
-      ) : (
-        <button
-          onClick={() => bukaForm()}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-2.5 text-xs text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" /> Tambah Bahan ke BOM
-        </button>
       )}
     </div>
   );
@@ -1206,6 +1281,7 @@ function ProductDetailModal({
   product,
   categories,
   materials,
+  variants, // <-- 1. Tambahkan ini di parameter
   onClose,
   onEdit,
   onVariantChange,
@@ -1213,6 +1289,7 @@ function ProductDetailModal({
   product: Product;
   categories: ProductCategory[];
   materials: Material[];
+  variants: ProductVariant[]; // <-- 2. Tambahkan ini di tipe parameter
   onClose: () => void;
   onEdit: () => void;
   onVariantChange?: (productId: string, variants: ProductVariant[]) => void;
@@ -1382,11 +1459,14 @@ function ProductDetailModal({
           {tab === "bom" && product.id && (
             <div className="px-6 py-5">
               <p className="text-xs text-muted-foreground mb-4">
-                Resep bahan baku (Bill of Materials) — berapa banyak tiap bahan
-                yang dibutuhkan untuk membuat{" "}
-                <span className="font-medium">1 pcs</span> produk ini.
+                Pilih ukuran produk di bawah ini untuk mengatur resep bahan baku
+                per <span className="font-medium">1 pcs</span>.
               </p>
-              <BomPanelInline productId={product.id} materials={materials} />
+              <BomPanelInline
+                productId={product.id}
+                materials={materials}
+                variants={variants} // <-- 3. Teruskan data ke sini
+              />
             </div>
           )}
         </div>
@@ -2120,6 +2200,7 @@ export default function KatalogProdukPage() {
           product={detailProduct}
           categories={categories}
           materials={materials}
+          variants={variantMap[detailProduct.id!] || []} // <-- Tambahkan baris ini
           onClose={() => setDetailProduct(null)}
           onEdit={() => {
             setEditProduct(detailProduct);

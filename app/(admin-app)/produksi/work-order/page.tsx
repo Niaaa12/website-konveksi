@@ -8,6 +8,7 @@ import {
   updateWorkOrder,
   deleteWorkOrder,
   getProducts,
+  getProductVariants,
   getProductionUnits,
   getOperators,
   getVariantsByProductIds,
@@ -191,6 +192,8 @@ function WorkOrderPageContent() {
       catatan: data.catatan,
     };
     if (id) await updateWorkOrder(id, payload);
+    // Saat membuat WO baru, fungsi createWorkOrder di firestore.ts akan otomatis
+    // memotong stok bahan baku berdasarkan BOM varian yang dipilih!
     else await createWorkOrder(payload);
     await loadData();
   }

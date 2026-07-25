@@ -126,28 +126,160 @@ export async function getWorkOrder(woId: string): Promise<WorkOrder | null> {
   return { id: snap.id, ...snap.data() } as WorkOrder;
 }
 
-/** Buat work order baru */
+/**
+ * Buat work order baru DAN potong bahan baku secara otomatis berdasarkan BOM per ukuran
+ */
 export async function createWorkOrder(
   data: Omit<WorkOrder, "id" | "createdAt" | "updatedAt">
 ): Promise<string> {
-  // 1. Buat dokumen WO — status dijadwalkan, progress 0%, tahap awal potong
-  const ref = await addDoc(collection(db, "workOrders"), {
-    ...data,
-    progress: 0,
-    tahapSaatIni: "potong" as WoTahap,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  let newWoId = "";
+
+  await runTransaction(db, async (tx) => {
+    // 1. Validasi Produk dan Varian
+    if (!data.productId || !data.variantId) {
+      throw new Error(
+        "Produk dan varian wajib dipilih untuk membuat Work Order."
+      );
+    }
+
+    // 2. Ambil data Varian untuk mengetahui ukuran spesifiknya
+    const variantRef = doc(
+      db,
+      `products/${data.productId}/variants/${data.variantId}`
+    );
+    const variantSnap = await tx.get(variantRef);
+    if (!variantSnap.exists()) {
+      throw new Error("Varian produk tidak ditemukan di database.");
+    }
+    const variantData = variantSnap.data() as ProductVariant;
+    const ukuranVarian = variantData.ukuran; // Contoh: "M", "L", "XXL", "Anak-anak"
+
+    // 3. Ambil data BOM (Resep Bahan) yang cocok dengan Produk DAN Ukuran tersebut
+    const bomsRef = collection(db, `products/${data.productId}/bom`);
+    const qBom = query(bomsRef, where("ukuran", "==", ukuranVarian));
+
+    // Karena kita di dalam transaksi, kita fetch dokumen BOM-nya
+    const bomSnap = await getDocs(qBom);
+    const boms = bomSnap.docs.map(
+      (d) => ({ id: d.id, ...d.data() } as BomItem)
+    );
+
+    if (boms.length === 0) {
+      throw new Error(
+        `Resep bahan (BOM) untuk produk ini pada ukuran "${ukuranVarian}" belum diatur di Katalog Produk.`
+      );
+    }
+
+    // 4. Siapkan penampung untuk validasi stok bahan baku fisik
+    const materialUpdates: {
+      ref: any;
+      materialId: string;
+      stokLama: number;
+      kebutuhanTotal: number;
+      materialData: Material;
+    }[] = [];
+
+    for (const bom of boms) {
+      // Perhitungan total kebutuhan = jumlah per unit (bisa desimal seperti 0.01 cone atau 0.8 meter) × target WO
+      const kebutuhanTotal = bom.jumlahPerUnit * data.jumlahTarget;
+
+      const matRef = doc(db, "materials", bom.materialId);
+      const matSnap = await tx.get(matRef);
+
+      if (!matSnap.exists()) {
+        throw new Error(
+          `Bahan baku dengan ID ${bom.materialId} pada resep BOM tidak ditemukan di gudang.`
+        );
+      }
+
+      const matData = matSnap.data() as Material;
+
+      // Cek apakah stok fisik mencukupi
+      if (matData.stokAktual < kebutuhanTotal) {
+        throw new Error(
+          `Stok bahan baku "${matData.nama}" tidak mencukupi! ` +
+            `Dibutuhkan: ${kebutuhanTotal} ${matData.satuan}, Tersedia: ${matData.stokAktual} ${matData.satuan}`
+        );
+      }
+
+      materialUpdates.push({
+        ref: matRef,
+        materialId: bom.materialId,
+        stokLama: matData.stokAktual,
+        kebutuhanTotal,
+        materialData: matData,
+      });
+    }
+
+    // --- FASE EKSEKUSI TULIS (WRITE) ---
+
+    // 5. Buat Dokumen Work Order Utama
+    const woRef = doc(collection(db, "workOrders"));
+    newWoId = woRef.id;
+
+    tx.set(woRef, {
+      ...data,
+      progress: 0,
+      tahapSaatIni: "potong" as WoTahap,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    // 6. Inisialisasi 5 Tahap Produksi
+    URUTAN_TAHAP.forEach((tahapId, idx) => {
+      const tahapRef = doc(
+        db,
+        `workOrders/${newWoId}/tahapProduksi/${tahapId}`
+      );
+      tx.set(tahapRef, {
+        tahap: tahapId,
+        urutanTahap: idx + 1,
+        status: idx === 0 ? "berlangsung" : "belum_mulai",
+        jumlahMasuk: idx === 0 ? data.jumlahTarget : 0,
+        jumlahSelesai: 0,
+        jumlahCacat: 0,
+        catatanKendala: "",
+        picId: data.operatorId ?? "",
+        updatedAt: serverTimestamp(),
+        mulaiAt: idx === 0 ? serverTimestamp() : null,
+        selesaiAt: null,
+      });
+    });
+
+    // 7. Kurangi Stok Bahan Baku secara Otomatis & Catat Log Transaksi
+    for (const item of materialUpdates) {
+      const stokBaru = item.stokLama - item.kebutuhanTotal;
+
+      // Hitung status stok baru (aman, rendah, kritis)
+      let newStatusStok: StokStatus = "aman";
+      if (stokBaru <= item.materialData.stokMin * 0.5) newStatusStok = "kritis";
+      else if (stokBaru < item.materialData.stokMin) newStatusStok = "rendah";
+
+      // Update stok di dokumen material
+      tx.update(item.ref, {
+        stokAktual: stokBaru,
+        statusStok: newStatusStok,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Catat ke log riwayat transaksi persediaan (`stockTransactions`)
+      const txLogRef = doc(collection(db, "stockTransactions"));
+      tx.set(txLogRef, {
+        materialId: item.materialId,
+        jenis: "keluar" as TxJenis,
+        jumlah: item.kebutuhanTotal,
+        refTipe: "WO",
+        refId: newWoId,
+        stokSebelum: item.stokLama,
+        stokSesudah: stokBaru,
+        dilakukanOleh: data.dibuatOleh || data.operatorId || "Sistem",
+        catatan: `Pemotongan otomatis via BOM untuk Work Order #${data.nomor} (${data.jumlahTarget} pcs)`,
+        createdAt: serverTimestamp(),
+      });
+    }
   });
 
-  // 2. Otomatis inisialisasi 5 tahap produksi
-  //    picId = operatorId WO (PIC yang bertanggung jawab)
-  await inisialisasiTahapProduksi(
-    ref.id,
-    data.jumlahTarget,
-    data.operatorId ?? ""
-  );
-
-  return ref.id;
+  return newWoId;
 }
 
 /** Update semua field WO (untuk manajer/admin) */
@@ -464,6 +596,7 @@ export interface ProductVariant {
   stokJadi: number; // stok di Gudang Besar
   stokGudangPacking?: number; // stok di Gudang Packing
   stokMin: number; // default 20 jika tidak diisi
+  status: string;
 }
 
 /** Status stok varian — dihitung sisi aplikasi, tidak disimpan di Firestore */
@@ -485,8 +618,10 @@ export function hitungVariantStokStatus(
  */
 export interface BomItem {
   id?: string;
-  materialId: string; // referensi ke collection materials
-  jumlahPerUnit: number; // kebutuhan bahan per 1 pcs produk
+  productId: string; // Relasi ke produk utama
+  ukuran: string; // <-- TAMBAHAN KRITIS: Menentukan ukuran (cth: "Anak-anak", "M", "L", "XXL")
+  materialId: string; // Referensi ke collection materials
+  jumlahPerUnit: number; // Kebutuhan bahan per 1 pcs produk untuk ukuran tersebut
   satuan: string; // "meter", "cone", "pcs", dst
   catatan?: string;
 }
@@ -639,7 +774,7 @@ export async function deleteProductVariant(
 
 // ── BOM CRUD ─────────────────────────────────────────────────────────────────
 
-/** Ambil BOM (resep bahan) untuk satu produk */
+/** Ambil BOM (resep bahan) untuk satu produk (semua ukuran) */
 export async function getProductBom(productId: string): Promise<BomItem[]> {
   const snap = await getDocs(collection(db, `products/${productId}/bom`));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BomItem));
@@ -650,7 +785,7 @@ export async function createBomItem(
   data: Omit<BomItem, "id">
 ): Promise<string> {
   const ref = await addDoc(collection(db, `products/${productId}/bom`), {
-    ...data,
+    ...data, // <-- 'ukuran' dan 'productId' otomatis masuk ke sini dari form UI
     createdAt: serverTimestamp(),
   });
   return ref.id;
@@ -662,7 +797,7 @@ export async function updateBomItem(
   data: Partial<BomItem>
 ): Promise<void> {
   await updateDoc(doc(db, `products/${productId}/bom/${bomId}`), {
-    ...data,
+    ...data, // <-- 'ukuran' akan ter-update otomatis jika diubah
     updatedAt: serverTimestamp(),
   });
 }
@@ -672,6 +807,23 @@ export async function deleteBomItem(
   bomId: string
 ): Promise<void> {
   await deleteDoc(doc(db, `products/${productId}/bom/${bomId}`));
+}
+
+/**
+ * [FUNGSI BARU] Ambil resep spesifik untuk Tahap Potong di Work Order
+ * Mem-filter resep hanya untuk ukuran yang sesuai dari subcollection produk.
+ */
+export async function getBomForWorkOrder(
+  productId: string,
+  ukuran: string
+): Promise<BomItem[]> {
+  const q = query(
+    collection(db, `products/${productId}/bom`),
+    where("ukuran", "==", ukuran)
+  );
+
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as BomItem));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -825,9 +977,9 @@ export async function getProductionUnitsSummary(): Promise<
         rataEfisiensi:
           aktifList.length > 0
             ? Math.round(
-              aktifList.reduce((s, u) => s + u.efisiensi, 0) /
-              aktifList.length
-            )
+                aktifList.reduce((s, u) => s + u.efisiensi, 0) /
+                  aktifList.length
+              )
             : 0,
       };
     })
@@ -1036,7 +1188,8 @@ export async function updateTahapProduksi(
       tx.get(tahapRef),
       tx.get(woRef),
     ]);
-    if (!tahapSnap.exists()) throw new Error(`Tahap ${tahapId} tidak ditemukan.`);
+    if (!tahapSnap.exists())
+      throw new Error(`Tahap ${tahapId} tidak ditemukan.`);
     if (!woSnap.exists()) throw new Error(`Work order tidak ditemukan.`);
     const wo = woSnap.data() as WorkOrder;
 
@@ -1074,7 +1227,7 @@ export async function updateTahapProduksi(
           updatedAt: serverTimestamp(),
         });
 
-        // WO: pindah ke tahap berikutnya 
+        // WO: pindah ke tahap berikutnya
         newTahapSaatIni = tahapBerikutnyaId as WoTahap;
 
         // Progress mengikuti tahap yang BARU selesai
@@ -1271,7 +1424,12 @@ export interface AppUser {
   id?: string;
   email: string;
   nama: string;
-  role: "admin" | "manajer" | "kepalaTimProduksi" | "kepalaGudang" | "picproduksi";
+  role:
+    | "admin"
+    | "manajer"
+    | "kepalaTimProduksi"
+    | "kepalaGudang"
+    | "picproduksi";
   jabatan: string;
   aktif: boolean;
 }
@@ -1331,13 +1489,13 @@ export async function getWarehouseTransfers(): Promise<WarehouseTransfer[]> {
   );
   return snap.docs.map(
     (d) =>
-    ({
-      id: d.id,
-      ...d.data(),
-      createdAt: d.data().createdAt?.toDate
-        ? d.data().createdAt.toDate()
-        : d.data().createdAt,
-    } as WarehouseTransfer)
+      ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate
+          ? d.data().createdAt.toDate()
+          : d.data().createdAt,
+      } as WarehouseTransfer)
   );
 }
 
@@ -1391,13 +1549,13 @@ export async function getProductOutflows(): Promise<ProductOutflow[]> {
   );
   return snap.docs.map(
     (d) =>
-    ({
-      id: d.id,
-      ...d.data(),
-      createdAt: d.data().createdAt?.toDate
-        ? d.data().createdAt.toDate()
-        : d.data().createdAt,
-    } as ProductOutflow)
+      ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate
+          ? d.data().createdAt.toDate()
+          : d.data().createdAt,
+      } as ProductOutflow)
   );
 }
 
