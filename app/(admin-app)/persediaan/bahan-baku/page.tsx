@@ -19,6 +19,7 @@ import {
   AlignLeft,
   ChevronDown,
   AlertCircle,
+  Clock,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
@@ -27,6 +28,7 @@ import {
   updateMaterial,
   deleteMaterial,
 } from "@/lib/firestore";
+import { MaterialHistoryModal } from "@/components/persediaan/MaterialHistoryModal";
 
 const BRAND = "#003247";
 const BRAND_LIGHT = "#004766";
@@ -34,6 +36,7 @@ const BRAND_LIGHT = "#004766";
 // ─── Types ───────────────────────────────────────────────────────
 interface BahanBaku {
   id: string;
+  kode: string;
   nama: string;
   kategori: string;
   satuan: string;
@@ -562,14 +565,17 @@ export default function BahanBakuPage() {
   const [modalDelete, setModalDelete] = useState<BahanBaku | null>(null);
   const [data, setData] = useState<BahanBaku[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedMaterialForHistory, setSelectedMaterialForHistory] =
+    useState<BahanBaku | null>(null);
 
   useEffect(() => {
     async function load() {
       setIsLoading(true);
       try {
         const mats = await getMaterials();
-        const mapped = mats.map((m) => ({
-          id: m.kode || "",
+        const mapped = mats.map((m: any) => ({
+          id: m.id, // Gunakan ID asli dokumen Firestore
+          kode: m.kode || "", // Simpan kode terpisah untuk ditampilkan di tabel
           nama: m.nama,
           kategori: m.kategoriId.startsWith("cat-")
             ? m.kategoriId.replace("cat-", "")
@@ -607,8 +613,12 @@ export default function BahanBakuPage() {
 
   async function handleAdd(form: BahanForm) {
     try {
+      // 1. Buat kode otomatisnya terlebih dahulu ke dalam variabel
+      const generatedKode = `BB-${Math.floor(Math.random() * 10000)}`;
+
+      // 2. Simpan ke Firebase menggunakan kode tersebut
       const newId = await createMaterial({
-        kode: `BB-${Math.floor(Math.random() * 10000)}`,
+        kode: generatedKode,
         nama: form.nama,
         kategoriId: form.kategori,
         supplierId: "sup-001",
@@ -619,10 +629,13 @@ export default function BahanBakuPage() {
         harga: +form.hargaSatuan,
         lokasiGudang: form.keterangan,
       });
+
+      // 3. Update state tabel menggunakan kode yang sama
       setData((prev) => [
         ...prev,
         {
           id: newId,
+          kode: generatedKode, // <-- Gunakan variabel, BUKAN form.kode
           nama: form.nama,
           kategori: form.kategori,
           satuan: form.satuan,
@@ -837,7 +850,7 @@ export default function BahanBakuPage() {
                     )}
                   >
                     <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
-                      {b.id}
+                      {b.kode}
                     </td>
                     <td className="px-4 py-3 font-medium text-foreground">
                       {b.nama}
@@ -872,6 +885,13 @@ export default function BahanBakuPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setSelectedMaterialForHistory(b)}
+                          className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60"
+                          title="Lihat Riwayat Transaksi Stok"
+                        >
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
                         <button
                           onClick={() => setModalView(b)}
                           title="Lihat"
@@ -953,6 +973,12 @@ export default function BahanBakuPage() {
         onConfirm={handleDelete}
         nama={modalDelete?.nama ?? ""}
       />
+      {selectedMaterialForHistory && (
+        <MaterialHistoryModal
+          material={selectedMaterialForHistory}
+          onClose={() => setSelectedMaterialForHistory(null)}
+        />
+      )}
     </div>
   );
 }

@@ -73,7 +73,7 @@ service cloud.firestore {
     // Hanya admin yang bisa buat, hapus, dan baca semua user.
     // ────────────────────────────────────────────────────────────────────────
     match /users/{uid} {
-      allow read:   if isOwner(uid) || isAdmin();
+      allow read:   if isOwner(uid) || isAdmin() || isProduksi();
       allow create: if isAdmin();
       allow update: if isOwner(uid) || isAdmin();
       allow delete: if isAdmin();
@@ -85,13 +85,13 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /materialCategories/{docId} {
       allow read:             if isAnyStaff();
-      allow create, update:   if isManajer();
+      allow create, update:   if isGudang() || isAdmin();
       allow delete:           if isAdmin();
     }
 
     match /productCategories/{docId} {
       allow read:             if isAnyStaff();
-      allow create, update:   if isManajer();
+      allow create, update:   if isProduksi() || isAdmin();
       allow delete:           if isAdmin();
     }
 
@@ -103,7 +103,7 @@ service cloud.firestore {
 
     match /productionUnits/{docId} {
       allow read:             if isAnyStaff();
-      allow create, update:   if isManajer();
+      allow create, update:   if isProduksi() || isAdmin();
       allow delete:           if isAdmin();
     }
 
@@ -113,13 +113,14 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /products/{productId} {
       allow read:             if isAnyStaff();
-      allow create, update:   if isManajer();
+      allow create:           if isAdmin(); 
+      allow update:           if isAdmin() || isProduksi() || isPICProduksi();
       allow delete:           if isAdmin();
 
       // Varian warna produk
       match /variants/{variantId} {
         allow read:           if isAnyStaff();
-        allow create:         if isManajer();
+        allow create:         if isAdmin();
         allow update:         if isAnyStaff();
         allow delete:         if isAdmin();
       }
@@ -127,7 +128,7 @@ service cloud.firestore {
       // Bill of Materials — resep produksi
       match /bom/{bomId} {
         allow read:           if isAnyStaff();
-        allow create, update: if isManajer();
+        allow create, update: if isAdmin();
         allow delete:         if isAdmin();
       }
     }
@@ -138,7 +139,8 @@ service cloud.firestore {
     // ────────────────────────────────────────────────────────────────────────
     match /materials/{materialId} {
       allow read:             if isAnyStaff();
-      allow create, update:   if isGudang();
+      allow create:           if isGudang();
+      allow update:           if isGudang() || isProduksi(); 
       allow delete:           if isAdmin();
     }
 
@@ -154,11 +156,9 @@ service cloud.firestore {
       allow read:   if isAnyStaff();
       allow create: if isProduksi();
       allow delete: if isAdmin();
+      allow update: if isProduksi() || isPICProduksi();
 
-      // Update: manajer/admin/produksi bebas update semua field
-      allow update: if isProduksi();
-
-      // Tahap produksi — staf produksi & manajer bisa baca, create, dan update
+      // Tahap produksi
       match /tahapProduksi/{tahapId} {
         allow read:   if isAnyStaff();
         allow create: if isProduksi();
@@ -203,15 +203,9 @@ service cloud.firestore {
     match /stockTransactions/{txId} {
       allow read:   if isAnyStaff();
 
-      // Siapapun yang berhak (gudang atau produksi) bisa buat transaksi baru,
-      // asal mencantumkan uid sendiri sebagai pelaku
-      allow create: if isGudang() || isProduksi()
-                    && request.resource.data.dilakukanOleh == request.auth.uid;
+      allow create: if isGudang() || isProduksi();
 
-      // Tidak ada yang boleh edit transaksi yang sudah ada (immutable log)
       allow update: if false;
-
-      // Hanya admin yang bisa hapus (kasus koreksi ekstrem)
       allow delete: if isAdmin();
     }
 
