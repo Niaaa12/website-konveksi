@@ -1537,7 +1537,6 @@ export async function getOperators(): Promise<AppUser[]> {
       (u) =>
         u.aktif &&
         (u.role === "kepalaTimProduksi" ||
-          u.role === "manajer" ||
           u.role === "picproduksi")
     );
 }
