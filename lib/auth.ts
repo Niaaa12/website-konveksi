@@ -29,7 +29,9 @@ export const HALAMAN_AKSES: Record<string, UserRole[]> = {
   "/katalogproduk": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
   "/laporan": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
   "/pengguna": ["admin"],
-  "/pengaturan": ["admin", "manajer"],
+  "/pengaturan": ["admin", "manajer", "kepalaTimProduksi",
+    "kepalaGudang",
+    "picproduksi"],
 };
 
 // Halaman awal setelah login per role
