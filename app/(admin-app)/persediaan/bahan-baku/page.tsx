@@ -20,6 +20,7 @@ import {
   ChevronDown,
   AlertCircle,
   Clock,
+  Tags,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
@@ -27,6 +28,9 @@ import {
   createMaterial,
   updateMaterial,
   deleteMaterial,
+  getMaterialCategories,
+  addMaterialCategory,
+  deleteMaterialCategory,
 } from "@/lib/firestore";
 import { MaterialHistoryModal } from "@/components/persediaan/MaterialHistoryModal";
 
@@ -69,7 +73,7 @@ const defaultForm: BahanForm = {
 const kategoriOptions = [
   "Kain",
   "Benang",
-  "Aksesori",
+  "Aksesoris",
   "Pewarna",
   "Kemasan",
   "Lainnya",
@@ -107,12 +111,14 @@ function TambahBahanModal({
   onSubmit,
   initial,
   mode = "tambah",
+  kategoriList,
 }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (d: BahanForm) => void;
   initial?: BahanForm;
   mode?: "tambah" | "edit";
+  kategoriList: { id: string; nama: string }[];
 }) {
   const [form, setForm] = useState<BahanForm>(initial ?? defaultForm);
   const [loading, setLoading] = useState(false);
@@ -240,9 +246,9 @@ function TambahBahanModal({
                       className={selectCls("kategori")}
                     >
                       <option value="">Pilih...</option>
-                      {kategoriOptions.map((k) => (
-                        <option key={k} value={k}>
-                          {k}
+                      {kategoriList.map((k) => (
+                        <option key={k.id} value={k.nama}>
+                          {k.nama}
                         </option>
                       ))}
                     </select>
@@ -555,6 +561,93 @@ function DeleteBahanModal({
   );
 }
 
+// ─── Modal Kelola Kategori ──────────────────────────────────────────
+function KelolaKategoriModal({
+  open,
+  onClose,
+  kategoriList,
+  onAdd,
+  onDelete,
+}: {
+  open: boolean;
+  onClose: () => void;
+  kategoriList: { id: string; nama: string }[];
+  onAdd: (nama: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+}) {
+  const [newKategori, setNewKategori] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  if (!open) return null;
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newKategori.trim()) return;
+    setLoading(true);
+    await onAdd(newKategori);
+    setNewKategori("");
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Tags className="h-4 w-4" /> Kelola Kategori
+          </h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted/50">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto flex-1">
+          {/* Form Tambah */}
+          <form onSubmit={handleAdd} className="flex gap-2 mb-6">
+            <input
+              type="text"
+              placeholder="Nama kategori baru..."
+              value={newKategori}
+              onChange={(e) => setNewKategori(e.target.value)}
+              disabled={loading}
+              className="flex-1 h-9 px-3 rounded-lg border border-border bg-background text-sm focus:border-[#003247] focus:ring-1 focus:ring-[#003247]/30 outline-none"
+            />
+            <button
+              type="submit"
+              disabled={loading || !newKategori.trim()}
+              className="h-9 px-4 rounded-lg bg-[#003247] text-white text-sm font-medium hover:bg-[#004a6e] disabled:opacity-50"
+            >
+              Tambah
+            </button>
+          </form>
+
+          {/* List Kategori */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground mb-3">Daftar Kategori Saat Ini</p>
+            {kategoriList.length === 0 ? (
+              <p className="text-xs text-center py-4 text-muted-foreground border border-dashed rounded-lg">Belum ada kategori.</p>
+            ) : (
+              kategoriList.map((k) => (
+                <div key={k.id} className="flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background">
+                  <span className="text-sm font-medium">{k.nama}</span>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Hapus kategori ${k.nama}?`)) onDelete(k.id);
+                    }}
+                    className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Halaman Bahan Baku ───────────────────────────────────────────
 export default function BahanBakuPage() {
   const [search, setSearch] = useState("");
@@ -567,25 +660,44 @@ export default function BahanBakuPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMaterialForHistory, setSelectedMaterialForHistory] =
     useState<BahanBaku | null>(null);
+  const [kategoriList, setKategoriList] = useState<
+    { id: string; nama: string }[]
+  >([]);
+  const [modalKategoriOpen, setModalKategoriOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
       setIsLoading(true);
       try {
-        const mats = await getMaterials();
-        const mapped = mats.map((m: any) => ({
-          id: m.id, // Gunakan ID asli dokumen Firestore
-          kode: m.kode || "", // Simpan kode terpisah untuk ditampilkan di tabel
-          nama: m.nama,
-          kategori: m.kategoriId.startsWith("cat-")
+        const [mats, cats] = await Promise.all([
+          getMaterials(),
+          getMaterialCategories(),
+        ]);
+
+        setKategoriList(cats);
+
+        const mapped = mats.map((m: any) => {
+          // Cari nama kategori dari array cats berdasarkan ID-nya
+          // Jika tidak ketemu (misal data lama), hapus kata 'cat-' nya
+          const matchedCategory = cats.find((c) => c.id === m.kategoriId);
+          const namaKategori = matchedCategory
+            ? matchedCategory.nama
+            : m.kategoriId.startsWith("cat-")
             ? m.kategoriId.replace("cat-", "")
-            : m.kategoriId,
-          satuan: m.satuan,
-          stok: m.stokAktual,
-          stokMin: m.stokMin,
-          hargaSatuan: m.harga,
-          keterangan: m.lokasiGudang || "",
-        }));
+            : m.kategoriId;
+
+          return {
+            id: m.id,
+            kode: m.kode || "",
+            nama: m.nama,
+            kategori: namaKategori, // <--- Sekarang menyimpan Nama, bukan ID
+            satuan: m.satuan,
+            stok: m.stokAktual,
+            stokMin: m.stokMin,
+            hargaSatuan: m.harga,
+            keterangan: m.lokasiGudang || "",
+          };
+        });
         setData(mapped);
       } catch (err) {
         console.error("Failed to load materials", err);
@@ -595,6 +707,24 @@ export default function BahanBakuPage() {
     }
     load();
   }, []);
+
+  async function handleAddKategori(nama: string) {
+    try {
+      const newId = await addMaterialCategory(nama);
+      setKategoriList((prev) => [...prev, { id: newId, nama }]);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function handleDeleteKategori(id: string) {
+    try {
+      await deleteMaterialCategory(id);
+      setKategoriList((prev) => prev.filter((k) => k.id !== id));
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   const kategoriFilter = ["Semua", ...kategoriOptions];
 
@@ -699,30 +829,53 @@ export default function BahanBakuPage() {
       {/* Alert stok kritis */}
       <StokKritisAlertFull stokKritis={stokKritis} stokHabis={stokHabis} />
 
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1 relative">
+      {/* Actions Bar (Jarak seragam & Search memanjang) */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+        {/* Kolom Pencarian (dibuat fleksibel agar memanjang) */}
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Cari nama atau kategori bahan..."
+            placeholder="Cari nama, kode, atau bahan..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-[#003247]/30 focus:border-[#003247] transition-all"
+            className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-[#003247]/30 focus:border-[#003247] transition-all shadow-sm"
           />
         </div>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-border bg-card hover:bg-accent transition-colors">
-            <Filter className="h-4 w-4" />
-            <span className="hidden sm:inline">Filter</span>
+
+        {/* Grup Filter & Tombol Aksi dengan gap yang konsisten */}
+        <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+          {/* Dropdown Filter Kategori */}
+          <div className="relative min-w-[160px] flex-1 sm:flex-none">
+            <select
+              value={filterKategori}
+              onChange={(e) => setFilterKategori(e.target.value)}
+              className="w-full appearance-none pl-9 pr-8 py-2 text-sm rounded-lg border border-border bg-card hover:bg-accent transition-colors focus:outline-none focus:ring-2 focus:ring-[#003247]/30 shadow-sm"
+            >
+              <option value="Semua">Semua Kategori</option>
+              {kategoriList.map((k) => (
+                <option key={k.id} value={k.nama}>
+                  {k.nama}
+                </option>
+              ))}
+            </select>
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          </div>
+
+          {/* Tombol Kelola Kategori */}
+          <button
+            onClick={() => setModalKategoriOpen(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-border bg-card hover:bg-accent transition-colors shadow-sm whitespace-nowrap flex-1 sm:flex-none"
+          >
+            <Tags className="h-4 w-4" />
+            <span>Kelola Kategori</span>
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-border bg-card hover:bg-accent transition-colors">
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Export</span>
-          </button>
+
+          {/* Tombol Tambah Bahan */}
           <button
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg text-white hover:opacity-90 transition-all active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white bg-[#003247] hover:bg-[#004a6e] transition-all active:scale-[0.98] shadow-sm whitespace-nowrap flex-1 sm:flex-none"
           >
             <Plus className="h-4 w-4" />
             <span>Tambah Bahan</span>
@@ -730,7 +883,7 @@ export default function BahanBakuPage() {
         </div>
       </div>
 
-      {/* Kategori filter */}
+      {/* Kategori filter
       <div className="flex gap-1 overflow-x-auto pb-0.5">
         {kategoriFilter.map((k) => {
           const count =
@@ -765,7 +918,7 @@ export default function BahanBakuPage() {
             </button>
           );
         })}
-      </div>
+      </div> */}
 
       {/* Tabel */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -941,6 +1094,7 @@ export default function BahanBakuPage() {
         onClose={() => setModalOpen(false)}
         onSubmit={handleAdd}
         mode="tambah"
+        kategoriList={kategoriList}
       />
       <TambahBahanModal
         open={!!modalEdit}
@@ -961,6 +1115,14 @@ export default function BahanBakuPage() {
         }
         mode="edit"
         key={modalEdit?.id ?? "edit"}
+        kategoriList={kategoriList}
+      />
+      <KelolaKategoriModal
+        open={modalKategoriOpen}
+        onClose={() => setModalKategoriOpen(false)}
+        kategoriList={kategoriList}
+        onAdd={handleAddKategori}
+        onDelete={handleDeleteKategori}
       />
       <ViewBahanModal
         open={!!modalView}

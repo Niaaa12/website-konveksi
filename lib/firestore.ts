@@ -84,6 +84,12 @@ export interface Material {
   updatedAt?: Date;
 }
 
+export interface MaterialCategory {
+  id: string;
+  nama: string;
+  deskripsi: string;
+}
+
 export interface StockTransaction {
   id?: string;
   materialId: string;
@@ -529,8 +535,32 @@ export async function getStockTransactions(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PRODUCTS
+// MATERIAL CATEGORIES
 // ─────────────────────────────────────────────────────────────────────────────
+
+// 1. Ambil daftar kategori
+export async function getMaterialCategories(): Promise<MaterialCategory[]> {
+  const q = query(collection(db, "materialCategories"));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({
+    id: d.id,
+    ...d.data()
+  })) as MaterialCategory[];
+}
+
+// 2. Tambah kategori baru
+export async function addMaterialCategory(nama: string): Promise<string> {
+  const ref = await addDoc(collection(db, "materialCategories"), {
+    nama,
+    createdAt: serverTimestamp()
+  });
+  return ref.id;
+}
+
+// 3. Hapus kategori
+export async function deleteMaterialCategory(id: string): Promise<void> {
+  await deleteDoc(doc(db, "materialCategories", id));
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PRODUK — tipe & CRUD lengkap termasuk varian warna dan BOM
@@ -1184,16 +1214,37 @@ export async function updateTahapProduksi(
   const selesai = update.status === "selesai";
 
   await runTransaction(db, async (tx) => {
+    // =======================================================
+    // FASE 1: BACA (READ) - SEMUA tx.get HARUS DI SINI
+    // =======================================================
+
+    // 1. Baca dokumen tahap saat ini dan Work Order induk
     const [tahapSnap, woSnap] = await Promise.all([
       tx.get(tahapRef),
       tx.get(woRef),
     ]);
+
     if (!tahapSnap.exists())
       throw new Error(`Tahap ${tahapId} tidak ditemukan.`);
     if (!woSnap.exists()) throw new Error(`Work order tidak ditemukan.`);
+
     const wo = woSnap.data() as WorkOrder;
 
-    // ── 1. Update dokumen tahap yang sedang dikerjakan ─────────────────────
+    // 2. Persiapan: Jika tahap ini selesai dan tahapnya adalah "packing",
+    // kita perlu membaca stok produk jadi (variant) sekarang SEBELUM fase penulisan.
+    let variantSnap: any = null;
+    let variantRef: any = null;
+
+    if (selesai && tahapId === "packing" && wo.productId && wo.variantId) {
+      variantRef = doc(db, `products/${wo.productId}/variants/${wo.variantId}`);
+      variantSnap = await tx.get(variantRef);
+    }
+
+    // =======================================================
+    // FASE 2: TULIS (WRITE) - SEMUA tx.update / tx.set DI SINI
+    // =======================================================
+
+    // 1. Update dokumen tahap yang sedang dikerjakan
     tx.update(tahapRef, {
       jumlahSelesai: update.jumlahSelesai,
       jumlahCacat: update.jumlahCacat,
@@ -1204,7 +1255,7 @@ export async function updateTahapProduksi(
       ...(selesai ? { selesaiAt: serverTimestamp() } : {}),
     });
 
-    // ── 2. Hitung tiga indikator WO ───────────────────────────────────────
+    // 2. Hitung tiga indikator WO
     let newWoStatus: WoStatus = wo.status;
     let newProgress: number = wo.progress ?? 0;
     let newTahapSaatIni: WoTahap = (wo.tahapSaatIni ?? tahapId) as WoTahap;
@@ -1220,6 +1271,7 @@ export async function updateTahapProduksi(
           db,
           `workOrders/${woId}/tahapProduksi/${tahapBerikutnyaId}`
         );
+
         tx.update(nextRef, {
           status: "berlangsung",
           jumlahMasuk: update.jumlahSelesai,
@@ -1237,10 +1289,6 @@ export async function updateTahapProduksi(
 
       if (tahapId === "packing") {
         // ── Packing selesai: WO selesai, progress 100% ────────────────────
-        newWoStatus = "selesai";
-        newProgress = 100;
-        newTahapSaatIni = "packing" as WoTahap;
-
         tx.update(woRef, {
           status: "selesai",
           jumlahSelesai: update.jumlahSelesai,
@@ -1251,21 +1299,15 @@ export async function updateTahapProduksi(
           updatedAt: serverTimestamp(),
         });
 
-        // Otomatis tambah stok produk jadi di Gudang Besar
-        if (wo.productId && wo.variantId) {
-          const variantRef = doc(
-            db,
-            `products/${wo.productId}/variants/${wo.variantId}`
-          );
-          const variantSnap = await tx.get(variantRef);
-          if (variantSnap.exists()) {
-            const variantData = variantSnap.data() as ProductVariant;
-            const stokLama = variantData.stokJadi ?? 0;
-            tx.update(variantRef, {
-              stokJadi: stokLama + update.jumlahSelesai,
-              updatedAt: serverTimestamp(),
-            });
-          }
+        // Otomatis tambah stok produk jadi di Gudang Besar (berdasarkan data BACA di Fase 1)
+        if (variantSnap && variantRef && variantSnap.exists()) {
+          const variantData = variantSnap.data() as ProductVariant;
+          const stokLama = variantData.stokJadi ?? 0;
+
+          tx.update(variantRef, {
+            stokJadi: stokLama + update.jumlahSelesai,
+            updatedAt: serverTimestamp(),
+          });
         }
 
         return; // WO sudah diupdate di atas, keluar
@@ -1284,7 +1326,7 @@ export async function updateTahapProduksi(
       newProgress = wo.progress ?? 0;
     }
 
-    // ── 3. Sync tiga indikator ke dokumen WorkOrder ───────────────────────
+    // 3. Sync tiga indikator ke dokumen WorkOrder (jika bukan packing selesai)
     tx.update(woRef, {
       status: newWoStatus,
       tahapSaatIni: newTahapSaatIni,

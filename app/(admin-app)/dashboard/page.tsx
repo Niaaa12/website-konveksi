@@ -243,7 +243,7 @@ export default function DashboardPage() {
         const categories = [
           "Kain",
           "Benang",
-          "Aksesori",
+          "Aksesoris",
           "Pewarna",
           "Kemasan",
           "Lainnya",
