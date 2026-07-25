@@ -24,6 +24,8 @@ import {
   RefreshCw,
   Save,
   AlertCircle,
+  History,
+  ClipboardList,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -340,14 +342,21 @@ function KartuWO({
   const tahapSelesai = wo.tahap.filter((t) => t.status === "selesai").length;
   const totalTahap = URUTAN_TAHAP.length;
   const semuaSelesai =
-    wo.tahap.length > 0 && wo.tahap.every((t) => t.status === "selesai");
+    wo.status === "selesai" ||
+    (wo.tahap.length > 0 && wo.tahap.every((t) => t.status === "selesai"));
   const adaMasalah = wo.tahap.some((t) => t.status === "ada_masalah");
 
   // Progress pcs dari tahap packing (output akhir)
   const packingTahap = wo.tahap.find((t) => t.tahap === "packing");
   const pctPacking =
     wo.jumlahTarget > 0
-      ? Math.round(((packingTahap?.jumlahSelesai ?? 0) / wo.jumlahTarget) * 100)
+      ? Math.round(
+          ((packingTahap?.jumlahSelesai ?? wo.jumlahSelesai ?? 0) /
+            wo.jumlahTarget) *
+            100
+        )
+      : semuaSelesai
+      ? 100
       : 0;
 
   return (
@@ -383,6 +392,7 @@ function KartuWO({
             <p className="text-xs text-muted-foreground mt-0.5">
               Target: {wo.tanggalTarget} ·{" "}
               {wo.jumlahTarget.toLocaleString("id-ID")} pcs
+              {wo.tanggalSelesai && ` · Selesai pada: ${wo.tanggalSelesai}`}
             </p>
           </div>
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -433,9 +443,6 @@ function KartuWO({
               <p className="text-sm text-muted-foreground">
                 Tahap produksi belum diinisialisasi.
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Hubungi manajer untuk mengaktifkan WO ini.
-              </p>
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -444,8 +451,9 @@ function KartuWO({
                 const Icon = cfg.icon;
                 const isAktif = tahapAktif === tahap.tahap;
                 const bisaUpdate =
-                  tahap.status === "berlangsung" ||
-                  tahap.status === "ada_masalah";
+                  !semuaSelesai &&
+                  (tahap.status === "berlangsung" ||
+                    tahap.status === "ada_masalah");
 
                 return (
                   <div
@@ -546,6 +554,9 @@ export default function ProgressPICPage() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
+  // State untuk tab aktif: "aktif" atau "selesai" (Riwayat)
+  const [activeTab, setActiveTab] = useState<"aktif" | "selesai">("aktif");
+
   // Ambil UID user yang sedang login
   useEffect(() => {
     const auth = getAuth();
@@ -585,16 +596,20 @@ export default function ProgressPICPage() {
     loadData();
   }, [loadData]);
 
-  // Pisahkan WO: yang ada masalah naik ke atas, selesai ke bawah
+  // Pisahkan WO Aktif dan WO Selesai
   const woAktif = woDanTahap.filter((wo) => wo.status !== "selesai");
   const woSelesai = woDanTahap.filter((wo) => wo.status === "selesai");
+
   const adaMasalah = woAktif.filter((wo) =>
     wo.tahap.some((t) => t.status === "ada_masalah")
   );
   const normal = woAktif.filter(
     (wo) => !wo.tahap.some((t) => t.status === "ada_masalah")
   );
-  const woUrut = [...adaMasalah, ...normal, ...woSelesai];
+
+  // Daftar WO yang ditampilkan berdasarkan Tab yang dipilih
+  const displayedWO =
+    activeTab === "aktif" ? [...adaMasalah, ...normal] : woSelesai;
 
   const jamRefresh = lastRefresh.toLocaleTimeString("id-ID", {
     hour: "2-digit",
@@ -678,22 +693,65 @@ export default function ProgressPICPage() {
             </div>
           </div>
         )}
+
+        {/* Tab Navigasi: Sedang Dikerjakan vs Riwayat Selesai */}
+        <div className="flex border-b border-border mt-4 -mb-3">
+          <button
+            onClick={() => setActiveTab("aktif")}
+            className={cn(
+              "flex-1 pb-2.5 text-xs font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5",
+              activeTab === "aktif"
+                ? "border-[#003247] text-[#003247] dark:text-white dark:border-white"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            Sedang Dikerjakan ({woAktif.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("selesai")}
+            className={cn(
+              "flex-1 pb-2.5 text-xs font-semibold border-b-2 transition-colors flex items-center justify-center gap-1.5",
+              activeTab === "selesai"
+                ? "border-[#003247] text-[#003247] dark:text-white dark:border-white"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <History className="h-3.5 w-3.5" />
+            Riwayat Selesai ({woSelesai.length})
+          </button>
+        </div>
       </div>
 
-      {/* ── Daftar WO ── */}
+      {/* ── Daftar WO Berdasarkan Tab ── */}
       <div className="px-4 py-4 space-y-3 pb-10">
-        {woUrut.length === 0 ? (
+        {displayedWO.length === 0 ? (
           <div className="flex flex-col items-center py-20 text-center">
-            <CheckCircle2 className="h-12 w-12 text-muted-foreground/30 mb-3" />
-            <p className="text-sm font-medium text-muted-foreground">
-              Tidak ada WO yang ditugaskan
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Hubungi manajer jika ada WO baru
-            </p>
+            {activeTab === "aktif" ? (
+              <>
+                <CheckCircle2 className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  Tidak ada WO aktif yang ditugaskan
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Semua tugas telah selesai atau belum ada penugasan baru.
+                </p>
+              </>
+            ) : (
+              <>
+                <History className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  Belum ada riwayat WO yang selesai
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Work order yang telah mencapai tahap packing selesai akan
+                  muncul di sini.
+                </p>
+              </>
+            )}
           </div>
         ) : (
-          woUrut.map((wo) => (
+          displayedWO.map((wo) => (
             <KartuWO
               key={wo.id}
               wo={wo}
