@@ -194,7 +194,7 @@ export async function createWorkOrder(
 
       if (!matSnap.exists()) {
         throw new Error(
-          `Bahan baku dengan ID ${bom.materialId} pada resep BOM tidak ditemukan di gudang.`
+          `Bahan baku dengan ID "${bom.materialId}" pada resep BOM tidak ditemukan di gudang.`
         );
       }
 
@@ -542,9 +542,9 @@ export async function getStockTransactions(
 export async function getMaterialCategories(): Promise<MaterialCategory[]> {
   const q = query(collection(db, "materialCategories"));
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({
+  return snap.docs.map((d) => ({
     id: d.id,
-    ...d.data()
+    ...d.data(),
   })) as MaterialCategory[];
 }
 
@@ -552,7 +552,7 @@ export async function getMaterialCategories(): Promise<MaterialCategory[]> {
 export async function addMaterialCategory(nama: string): Promise<string> {
   const ref = await addDoc(collection(db, "materialCategories"), {
     nama,
-    createdAt: serverTimestamp()
+    createdAt: serverTimestamp(),
   });
   return ref.id;
 }
@@ -1080,7 +1080,13 @@ export async function getDashboardStats() {
 // PIC yang update — bukan operator mesin.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type TahapId = "potong" | "jahit" | "obras" | "finishing" | "packing";
+export type TahapId =
+  | "pola"
+  | "potong"
+  | "jahit"
+  | "obras"
+  | "qc"
+  | "finishing";
 
 export type TahapStatus =
   | "belum_mulai" // WO baru dibuat, tahap belum dimulai
@@ -1106,21 +1112,27 @@ export interface TahapProduksi {
 // Urutan dan label tahap — single source of truth
 export const TAHAP_CONFIG: Record<
   TahapId,
-  { label: string; urutan: number; labelPendek: string }
+  { label: string; labelPendek: string; urutan: number }
 > = {
-  potong: { label: "Pemotongan Kain", labelPendek: "Potong", urutan: 1 },
-  jahit: { label: "Penjahitan", labelPendek: "Jahit", urutan: 2 },
-  obras: { label: "Obras", labelPendek: "Obras", urutan: 3 },
-  finishing: { label: "Finishing & QC", labelPendek: "Finishing", urutan: 4 },
-  packing: { label: "Packing", labelPendek: "Packing", urutan: 5 },
+  pola: { label: "Pembuatan Pola", labelPendek: "Pola", urutan: 1 },
+  potong: { label: "Pemotongan Kain", labelPendek: "Potong", urutan: 2 },
+  jahit: { label: "Penjahitan Utama", labelPendek: "Jahit", urutan: 3 },
+  obras: { label: "Obras & Sambung", labelPendek: "Obras", urutan: 4 },
+  qc: { label: "Quality Control (QC)", labelPendek: "QC", urutan: 5 },
+  finishing: {
+    label: "Finishing & Lipat",
+    labelPendek: "Finishing",
+    urutan: 6,
+  }, // Tahap Akhir
 };
 
 export const URUTAN_TAHAP: TahapId[] = [
+  "pola",
   "potong",
   "jahit",
   "obras",
+  "qc",
   "finishing",
-  "packing",
 ];
 
 /**
@@ -1129,11 +1141,12 @@ export const URUTAN_TAHAP: TahapId[] = [
  * Ini yang ditampilkan di kolom "Progress" halaman Work Order.
  */
 export const TAHAP_PROGRESS: Record<TahapId, number> = {
-  potong: 20,
-  jahit: 40,
-  obras: 60,
-  finishing: 80,
-  packing: 90,
+  pola: 15,
+  potong: 30,
+  jahit: 55,
+  obras: 75,
+  qc: 90,
+  finishing: 100,
 };
 
 /** Ambil semua tahap produksi sebuah WO, diurutkan sesuai alur produksi */
@@ -1235,7 +1248,7 @@ export async function updateTahapProduksi(
     let variantSnap: any = null;
     let variantRef: any = null;
 
-    if (selesai && tahapId === "packing" && wo.productId && wo.variantId) {
+    if (selesai && tahapId === "finishing" && wo.productId && wo.variantId) {
       variantRef = doc(db, `products/${wo.productId}/variants/${wo.variantId}`);
       variantSnap = await tx.get(variantRef);
     }
@@ -1287,19 +1300,19 @@ export async function updateTahapProduksi(
         newWoStatus = "berjalan";
       }
 
-      if (tahapId === "packing") {
-        // ── Packing selesai: WO selesai, progress 100% ────────────────────
+      if (tahapId === "finishing") {
+        // ── Finishing selesai: WO selesai, progress 100% & Masuk Gudang ──
         tx.update(woRef, {
           status: "selesai",
           jumlahSelesai: update.jumlahSelesai,
           jumlahCacat: update.jumlahCacat,
-          tahapSaatIni: "packing" as WoTahap,
+          tahapSaatIni: "finishing" as WoTahap,
           progress: 100,
           tanggalSelesai: new Date().toISOString().slice(0, 10),
           updatedAt: serverTimestamp(),
         });
 
-        // Otomatis tambah stok produk jadi di Gudang Besar (berdasarkan data BACA di Fase 1)
+        // Otomatis tambah stok produk jadi di Gudang Besar
         if (variantSnap && variantRef && variantSnap.exists()) {
           const variantData = variantSnap.data() as ProductVariant;
           const stokLama = variantData.stokJadi ?? 0;
@@ -1310,7 +1323,7 @@ export async function updateTahapProduksi(
           });
         }
 
-        return; // WO sudah diupdate di atas, keluar
+        return;
       }
     } else if (update.status === "ada_masalah") {
       // ── Ada masalah: status WO → tertunda, tahap & progress TIDAK berubah
@@ -1343,26 +1356,50 @@ export async function updateTahapProduksi(
  * beserta semua tahap produksinya sekaligus.
  * Untuk halaman Progress PIC.
  */
+export type WODenganTahap = WorkOrder & { tahap: TahapProduksi[] };
+
+/**
+ * Ambil WO yang ditugaskan ke PIC tertentu (berdasarkan operatorId/picId),
+ * beserta semua tahap produksinya sekaligus.
+ * Untuk halaman Progress PIC.
+ */
 export async function getWOdanTahapByPIC(
   picId: string
-): Promise<Array<WorkOrder & { tahap: TahapProduksi[] }>> {
-  const snap = await getDocs(
-    query(
+): Promise<WODenganTahap[]> {
+  try {
+    // 1. Ambil semua Work Order yang memiliki picId yang sama
+    // (Tanpa filter status agar WO yang sudah selesai tetap bisa ditarik ke tab Riwayat)
+    const woQuery = query(
       collection(db, "workOrders"),
-      where("operatorId", "==", picId),
-      where("status", "in", ["berjalan", "dijadwalkan", "tertunda"]),
-      orderBy("tanggalTarget")
-    )
-  );
+      where("operatorId", "==", picId)
+    );
 
-  const wos = snap.docs.map((d) => ({ id: d.id, ...d.data() } as WorkOrder));
+    const woSnap = await getDocs(woQuery);
+    const woList: WODenganTahap[] = [];
 
-  // Ambil tahap semua WO secara paralel
-  const tahapList = await Promise.all(
-    wos.map((wo) => getTahapProduksi(wo.id!).catch(() => []))
-  );
+    for (const woDoc of woSnap.docs) {
+      const woData = { id: woDoc.id, ...woDoc.data() } as WorkOrder;
 
-  return wos.map((wo, i) => ({ ...wo, tahap: tahapList[i] }));
+      // 2. Ambil subcollection tahap produksi untuk setiap WO
+      const tahapSnap = await getDocs(
+        collection(db, `workOrders/${woDoc.id}/tahapProduksi`)
+      );
+      const tahapList = tahapSnap.docs.map((t) => ({
+        tahap: t.id as any,
+        ...t.data(),
+      })) as TahapProduksi[];
+
+      woList.push({
+        ...woData,
+        tahap: tahapList,
+      });
+    }
+
+    return woList;
+  } catch (error) {
+    console.error("Gagal mengambil WO PIC:", error);
+    return [];
+  }
 }
 
 /** Listener real-time untuk tahap produksi satu WO (untuk manajer di desktop) */

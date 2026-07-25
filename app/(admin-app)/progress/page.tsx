@@ -347,7 +347,7 @@ function KartuWO({
   const adaMasalah = wo.tahap.some((t) => t.status === "ada_masalah");
 
   // Progress pcs dari tahap packing (output akhir)
-  const packingTahap = wo.tahap.find((t) => t.tahap === "packing");
+  const packingTahap = wo.tahap.find((t) => t.tahap === "finishing");
   const pctPacking =
     wo.jumlahTarget > 0
       ? Math.round(

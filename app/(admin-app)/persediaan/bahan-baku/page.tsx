@@ -78,7 +78,7 @@ const kategoriOptions = [
   "Kemasan",
   "Lainnya",
 ];
-const satuanOptions = ["meter", "kg", "lusin", "gross", "pcs", "roll", "liter"];
+const satuanOptions = ["meter", "kg", "lusin", "cone", "pcs", "roll"];
 
 // ─── Status stok ─────────────────────────────────────────────────
 function StokBadge({ stok, stokMin }: { stok: number; stokMin: number }) {
