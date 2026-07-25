@@ -6,12 +6,27 @@ import {
   hitungStokKritis,
 } from "@/components//alert/StokKritisAlert";
 import {
-  Plus, Search, Filter, Download, Edit, Trash2, Eye,
-  X, Loader2, Boxes, AlignLeft, ChevronDown, AlertCircle,
+  Plus,
+  Search,
+  Filter,
+  Download,
+  Edit,
+  Trash2,
+  Eye,
+  X,
+  Loader2,
+  Boxes,
+  AlignLeft,
+  ChevronDown,
+  AlertCircle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getMaterials, createMaterial, updateMaterial, deleteMaterial } from "@/lib/firestore";
-
+import {
+  getMaterials,
+  createMaterial,
+  updateMaterial,
+  deleteMaterial,
+} from "@/lib/firestore";
 
 const BRAND = "#003247";
 const BRAND_LIGHT = "#004766";
@@ -39,26 +54,62 @@ interface BahanForm {
 }
 
 const defaultForm: BahanForm = {
-  nama: "", kategori: "", satuan: "", stok: "",
-  stokMin: "", hargaSatuan: "", keterangan: "",
+  nama: "",
+  kategori: "",
+  satuan: "",
+  stok: "",
+  stokMin: "",
+  hargaSatuan: "",
+  keterangan: "",
 };
 
-const kategoriOptions = ["Kain", "Benang", "Aksesori", "Pewarna", "Kemasan", "Lainnya"];
+const kategoriOptions = [
+  "Kain",
+  "Benang",
+  "Aksesori",
+  "Pewarna",
+  "Kemasan",
+  "Lainnya",
+];
 const satuanOptions = ["meter", "kg", "lusin", "gross", "pcs", "roll", "liter"];
 
 // ─── Status stok ─────────────────────────────────────────────────
 function StokBadge({ stok, stokMin }: { stok: number; stokMin: number }) {
   if (stok <= 0)
-    return <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-900/40 dark:text-red-400"><span className="h-1.5 w-1.5 rounded-full bg-red-500" />Habis</span>;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-900/40 dark:text-red-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+        Habis
+      </span>
+    );
   if (stok <= stokMin)
-    return <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />Kritis</span>;
-  return <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Aman</span>;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+        Kritis
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+      Aman
+    </span>
+  );
 }
 
 // ─── Modal Tambah Bahan Baku ──────────────────────────────────────
-function TambahBahanModal({ open, onClose, onSubmit, initial, mode = "tambah" }: {
-  open: boolean; onClose: () => void; onSubmit: (d: BahanForm) => void;
-  initial?: BahanForm; mode?: "tambah" | "edit";
+function TambahBahanModal({
+  open,
+  onClose,
+  onSubmit,
+  initial,
+  mode = "tambah",
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (d: BahanForm) => void;
+  initial?: BahanForm;
+  mode?: "tambah" | "edit";
 }) {
   const [form, setForm] = useState<BahanForm>(initial ?? defaultForm);
   const [loading, setLoading] = useState(false);
@@ -67,8 +118,8 @@ function TambahBahanModal({ open, onClose, onSubmit, initial, mode = "tambah" }:
   if (!open) return null;
 
   function set(field: keyof BahanForm, value: string) {
-    setForm(p => ({ ...p, [field]: value }));
-    if (errors[field]) setErrors(p => ({ ...p, [field]: "" }));
+    setForm((p) => ({ ...p, [field]: value }));
+    if (errors[field]) setErrors((p) => ({ ...p, [field]: "" }));
   }
 
   function validate() {
@@ -76,18 +127,24 @@ function TambahBahanModal({ open, onClose, onSubmit, initial, mode = "tambah" }:
     if (!form.nama.trim()) e.nama = "Nama bahan wajib diisi.";
     if (!form.kategori) e.kategori = "Pilih kategori.";
     if (!form.satuan) e.satuan = "Pilih satuan.";
-    if (!form.stok || isNaN(+form.stok) || +form.stok < 0) e.stok = "Stok harus angka ≥ 0.";
-    if (!form.stokMin || isNaN(+form.stokMin) || +form.stokMin < 0) e.stokMin = "Stok minimum harus angka ≥ 0.";
-    if (!form.hargaSatuan || isNaN(+form.hargaSatuan) || +form.hargaSatuan < 0) e.hargaSatuan = "Harga harus angka ≥ 0.";
+    if (!form.stok || isNaN(+form.stok) || +form.stok < 0)
+      e.stok = "Stok harus angka ≥ 0.";
+    if (!form.stokMin || isNaN(+form.stokMin) || +form.stokMin < 0)
+      e.stokMin = "Stok minimum harus angka ≥ 0.";
+    if (!form.hargaSatuan || isNaN(+form.hargaSatuan) || +form.hargaSatuan < 0)
+      e.hargaSatuan = "Harga harus angka ≥ 0.";
     return e;
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs = validate();
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
+    await new Promise((r) => setTimeout(r, 600));
     onSubmit(form);
     setLoading(false);
     setForm(defaultForm);
@@ -97,143 +154,240 @@ function TambahBahanModal({ open, onClose, onSubmit, initial, mode = "tambah" }:
 
   function handleClose() {
     if (loading) return;
-    setForm(defaultForm); setErrors({}); onClose();
+    setForm(defaultForm);
+    setErrors({});
+    onClose();
   }
 
-  const inputCls = (field: keyof BahanForm) => cn(
-    "w-full h-10 px-3 rounded-lg border bg-background text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all disabled:opacity-60",
-    errors[field]
-      ? "border-red-400 focus:ring-1 focus:ring-red-400"
-      : "border-border focus:border-[#003247] focus:ring-1 focus:ring-[#003247]/30"
-  );
+  const inputCls = (field: keyof BahanForm) =>
+    cn(
+      "w-full h-10 px-3 rounded-lg border bg-background text-sm text-foreground placeholder:text-muted-foreground outline-none transition-all disabled:opacity-60",
+      errors[field]
+        ? "border-red-400 focus:ring-1 focus:ring-red-400"
+        : "border-border focus:border-[#003247] focus:ring-1 focus:ring-[#003247]/30"
+    );
 
-  const selectCls = (field: keyof BahanForm) => cn(
-    "w-full h-10 pl-3 pr-8 rounded-lg border bg-background text-sm text-foreground outline-none appearance-none transition-all disabled:opacity-60",
-    errors[field]
-      ? "border-red-400 focus:ring-1 focus:ring-red-400"
-      : "border-border focus:border-[#003247] focus:ring-1 focus:ring-[#003247]/30"
-  );
+  const selectCls = (field: keyof BahanForm) =>
+    cn(
+      "w-full h-10 pl-3 pr-8 rounded-lg border bg-background text-sm text-foreground outline-none appearance-none transition-all disabled:opacity-60",
+      errors[field]
+        ? "border-red-400 focus:ring-1 focus:ring-red-400"
+        : "border-border focus:border-[#003247] focus:ring-1 focus:ring-[#003247]/30"
+    );
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
+      <div
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        onClick={handleClose}
+      />
+
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4" style={{ background: BRAND }}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
-                <Boxes className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold text-white">{mode === "edit" ? "Edit Bahan Baku" : "Tambah Bahan Baku"}</h2>
-                <p className="text-[11px] text-white/60">{mode === "edit" ? "Ubah data bahan baku" : "Isi data bahan baku baru"}</p>
-              </div>
-            </div>
-            <button onClick={handleClose} disabled={loading} className="rounded-lg p-1.5 hover:bg-white/10 transition-colors text-white/70 hover:text-white">
+          <div className="flex items-center justify-between border-b border-border px-6 py-4">
+            <h2 className="text-sm font-semibold">
+              {mode === "edit" ? "Edit Bahan Baku" : "Tambah Bahan Baku"}
+            </h2>
+
+            <button
+              onClick={handleClose}
+              disabled={loading}
+              className="rounded-lg border border-border p-1.5 hover:bg-muted/50"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-            {/* Nama */}
-            <div>
-              <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                Nama Bahan <span className="text-red-500">*</span>
-              </label>
-              <input type="text" value={form.nama} onChange={e => set("nama", e.target.value)}
-                placeholder="cth. Kain Voal Premium" disabled={loading} className={inputCls("nama")} />
-              {errors.nama && <p className="mt-1 text-[11px] text-red-500">{errors.nama}</p>}
-            </div>
-
-            {/* Kategori + Satuan */}
-            <div className="grid grid-cols-2 gap-3">
+          <form
+            onSubmit={handleSubmit}
+            className="overflow-y-auto max-h-[80vh]"
+          >
+            <div className="space-y-4 px-6 py-5">
+              {/* Nama */}
               <div>
-                <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Kategori <span className="text-red-500">*</span>
+                <label className="mb-1.5 block text-xs font-medium">
+                  Nama Bahan <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.nama}
+                  onChange={(e) => set("nama", e.target.value)}
+                  placeholder="cth. Kain Voal Premium"
+                  disabled={loading}
+                  className={inputCls("nama")}
+                />
+                {errors.nama && (
+                  <p className="mt-1 text-[11px] text-red-500">{errors.nama}</p>
+                )}
+              </div>
+
+              {/* Kategori + Satuan */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium">
+                    Kategori <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={form.kategori}
+                      onChange={(e) => set("kategori", e.target.value)}
+                      disabled={loading}
+                      className={selectCls("kategori")}
+                    >
+                      <option value="">Pilih...</option>
+                      {kategoriOptions.map((k) => (
+                        <option key={k} value={k}>
+                          {k}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                  {errors.kategori && (
+                    <p className="mt-1 text-[11px] text-red-500">
+                      {errors.kategori}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium">
+                    Satuan <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={form.satuan}
+                      onChange={(e) => set("satuan", e.target.value)}
+                      disabled={loading}
+                      className={selectCls("satuan")}
+                    >
+                      <option value="">Pilih...</option>
+                      {satuanOptions.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                  {errors.satuan && (
+                    <p className="mt-1 text-[11px] text-red-500">
+                      {errors.satuan}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Stok + Stok Min */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium">
+                    Stok Awal <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.stok}
+                    onChange={(e) => set("stok", e.target.value)}
+                    placeholder="0"
+                    disabled={loading}
+                    className={inputCls("stok")}
+                  />
+                  {errors.stok && (
+                    <p className="mt-1 text-[11px] text-red-500">
+                      {errors.stok}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium">
+                    Stok Minimum <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.stokMin}
+                    onChange={(e) => set("stokMin", e.target.value)}
+                    placeholder="0"
+                    disabled={loading}
+                    className={inputCls("stokMin")}
+                  />
+                  {errors.stokMin && (
+                    <p className="mt-1 text-[11px] text-red-500">
+                      {errors.stokMin}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Harga Satuan */}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium">
+                  Harga Satuan (Rp) <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <select value={form.kategori} onChange={e => set("kategori", e.target.value)} disabled={loading} className={selectCls("kategori")}>
-                    <option value="">Pilih...</option>
-                    {kategoriOptions.map(k => <option key={k} value={k}>{k}</option>)}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    Rp
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.hargaSatuan}
+                    onChange={(e) => set("hargaSatuan", e.target.value)}
+                    placeholder="0"
+                    disabled={loading}
+                    className={cn(inputCls("hargaSatuan"), "pl-9")}
+                  />
                 </div>
-                {errors.kategori && <p className="mt-1 text-[11px] text-red-500">{errors.kategori}</p>}
+                {errors.hargaSatuan && (
+                  <p className="mt-1 text-[11px] text-red-500">
+                    {errors.hargaSatuan}
+                  </p>
+                )}
               </div>
+
+              {/* Keterangan */}
               <div>
-                <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Satuan <span className="text-red-500">*</span>
+                <label className="mb-1.5 block text-xs font-medium">
+                  <AlignLeft className="h-3.5 w-3.5" /> Keterangan
                 </label>
-                <div className="relative">
-                  <select value={form.satuan} onChange={e => set("satuan", e.target.value)} disabled={loading} className={selectCls("satuan")}>
-                    <option value="">Pilih...</option>
-                    {satuanOptions.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-                {errors.satuan && <p className="mt-1 text-[11px] text-red-500">{errors.satuan}</p>}
+                <textarea
+                  rows={2}
+                  value={form.keterangan}
+                  onChange={(e) => set("keterangan", e.target.value)}
+                  placeholder="Catatan tambahan (opsional)..."
+                  disabled={loading}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none focus:border-[#003247] focus:ring-1 focus:ring-[#003247]/30 transition-all disabled:opacity-60"
+                />
               </div>
-            </div>
 
-            {/* Stok + Stok Min */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Stok Awal <span className="text-red-500">*</span>
-                </label>
-                <input type="number" min={0} value={form.stok} onChange={e => set("stok", e.target.value)}
-                  placeholder="0" disabled={loading} className={inputCls("stok")} />
-                {errors.stok && <p className="mt-1 text-[11px] text-red-500">{errors.stok}</p>}
+              {/* Buttons */}
+              <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  disabled={loading}
+                  className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted/50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2 text-sm font-medium text-white hover:bg-[#004a6e] disabled:opacity-60"
+                >
+                  {loading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : mode === "edit" ? (
+                    <Edit className="h-3.5 w-3.5" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+
+                  {mode === "edit" ? "Simpan" : "Tambah Bahan"}
+                </button>
               </div>
-              <div>
-                <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Stok Minimum <span className="text-red-500">*</span>
-                </label>
-                <input type="number" min={0} value={form.stokMin} onChange={e => set("stokMin", e.target.value)}
-                  placeholder="0" disabled={loading} className={inputCls("stokMin")} />
-                {errors.stokMin && <p className="mt-1 text-[11px] text-red-500">{errors.stokMin}</p>}
-              </div>
-            </div>
-
-            {/* Harga Satuan */}
-            <div>
-              <label className="block text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                Harga Satuan (Rp) <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">Rp</span>
-                <input type="number" min={0} value={form.hargaSatuan} onChange={e => set("hargaSatuan", e.target.value)}
-                  placeholder="0" disabled={loading}
-                  className={cn(inputCls("hargaSatuan"), "pl-9")} />
-              </div>
-              {errors.hargaSatuan && <p className="mt-1 text-[11px] text-red-500">{errors.hargaSatuan}</p>}
-            </div>
-
-            {/* Keterangan */}
-            <div>
-              <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-                <AlignLeft className="h-3.5 w-3.5" /> Keterangan
-              </label>
-              <textarea rows={2} value={form.keterangan} onChange={e => set("keterangan", e.target.value)}
-                placeholder="Catatan tambahan (opsional)..." disabled={loading}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none focus:border-[#003247] focus:ring-1 focus:ring-[#003247]/30 transition-all disabled:opacity-60" />
-            </div>
-
-            {/* Buttons */}
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={handleClose} disabled={loading}
-                className="flex-1 h-10 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60">
-                Batal
-              </button>
-              <button type="submit" disabled={loading}
-                className="flex-1 h-10 rounded-lg text-sm font-medium text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-70"
-                style={{ background: BRAND }}
-                onMouseEnter={e => !loading && ((e.target as HTMLElement).style.background = BRAND_LIGHT)}
-                onMouseLeave={e => !loading && ((e.target as HTMLElement).style.background = BRAND)}>
-                {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Menyimpan...</> : <>{mode === "edit" ? <Edit className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{mode === "edit" ? "Simpan Perubahan" : "Tambah Bahan"}</>}
-              </button>
             </div>
           </form>
         </div>
@@ -243,10 +397,23 @@ function TambahBahanModal({ open, onClose, onSubmit, initial, mode = "tambah" }:
 }
 
 // ─── Modal Lihat Detail ───────────────────────────────────────────
-function ViewBahanModal({ open, onClose, b }: { open: boolean; onClose: () => void; b: BahanBaku | null }) {
+function ViewBahanModal({
+  open,
+  onClose,
+  b,
+}: {
+  open: boolean;
+  onClose: () => void;
+  b: BahanBaku | null;
+}) {
   if (!open || !b) return null;
   const rows: [string, React.ReactNode][] = [
-    ["ID", <span key="id" className="font-mono text-xs">{b.id}</span>],
+    [
+      "ID",
+      <span key="id" className="font-mono text-xs">
+        {b.id}
+      </span>,
+    ],
     ["Nama Bahan", b.nama],
     ["Kategori", b.kategori],
     ["Satuan", b.satuan],
@@ -259,26 +426,49 @@ function ViewBahanModal({ open, onClose, b }: { open: boolean; onClose: () => vo
   ];
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-6 py-4" style={{ background: "#003247" }}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10"><Eye className="h-4 w-4 text-white" /></div>
-              <div><h2 className="text-sm font-semibold text-white">Detail Bahan Baku</h2><p className="text-[11px] text-white/60">{b.id}</p></div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-border px-6 py-4">
+            <div>
+              <h2 className="text-sm font-semibold">Detail Bahan Baku</h2>
+              <p className="text-xs text-muted-foreground">{b.id}</p>
             </div>
-            <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-white/10 transition-colors text-white/70 hover:text-white"><X className="h-4 w-4" /></button>
+
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-border p-1.5 hover:bg-muted/50 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
-          <div className="p-6 space-y-1">
+
+          {/* Body */}
+          <div className="space-y-4 px-6 py-5 max-h-[70vh] overflow-y-auto">
             {rows.map(([label, val]) => (
-              <div key={label as string} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <span className="text-xs text-muted-foreground w-32">{label}</span>
-                <span className="text-sm font-medium text-foreground text-right">{val}</span>
+              <div
+                key={label as string}
+                className="flex items-start justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0"
+              >
+                <span className="text-xs font-medium text-muted-foreground min-w-[120px]">
+                  {label}
+                </span>
+
+                <span className="text-sm font-medium text-right break-words">
+                  {val}
+                </span>
               </div>
             ))}
           </div>
-          <div className="px-6 pb-6">
-            <button onClick={onClose} className="w-full h-10 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors">Tutup</button>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
+            <button
+              onClick={onClose}
+              className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
+            >
+              Tutup
+            </button>
           </div>
         </div>
       </div>
@@ -287,30 +477,73 @@ function ViewBahanModal({ open, onClose, b }: { open: boolean; onClose: () => vo
 }
 
 // ─── Modal Konfirmasi Hapus ────────────────────────────────────────
-function DeleteBahanModal({ open, onClose, onConfirm, nama }: { open: boolean; onClose: () => void; onConfirm: () => void; nama: string }) {
+function DeleteBahanModal({
+  open,
+  onClose,
+  onConfirm,
+  nama,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  nama: string;
+}) {
   const [loading, setLoading] = useState(false);
   if (!open) return null;
   async function handle() {
     setLoading(true);
-    await new Promise(r => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 400));
     onConfirm();
     setLoading(false);
     onClose();
   }
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => !loading && onClose()} />
+      <div
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        onClick={() => !loading && onClose()}
+      />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-2xl p-6 flex flex-col items-center gap-4 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30"><AlertCircle className="h-6 w-6 text-red-500" /></div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+            <AlertCircle className="h-6 w-6 text-red-500" />
+          </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Hapus Bahan Baku?</h3>
-            <p className="mt-1 text-xs text-muted-foreground">Bahan <span className="font-semibold text-foreground">&quot;{nama}&quot;</span> akan dihapus permanen.</p>
+            <h3 className="text-sm font-semibold text-foreground">
+              Hapus Bahan Baku?
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Bahan{" "}
+              <span className="font-semibold text-foreground">
+                &quot;{nama}&quot;
+              </span>{" "}
+              akan dihapus permanen.
+            </p>
           </div>
           <div className="flex w-full gap-3">
-            <button onClick={onClose} disabled={loading} className="flex-1 h-10 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60">Batal</button>
-            <button onClick={handle} disabled={loading} className="flex-1 h-10 rounded-lg bg-red-500 hover:bg-red-600 text-sm font-medium text-white flex items-center justify-center gap-2 transition-colors disabled:opacity-70">
-              {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Menghapus...</> : <><Trash2 className="h-4 w-4" />Hapus</>}
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 h-10 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60"
+            >
+              Batal
+            </button>
+            <button
+              onClick={handle}
+              disabled={loading}
+              className="flex-1 h-10 rounded-lg bg-red-500 hover:bg-red-600 text-sm font-medium text-white flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Menghapus...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Hapus
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -335,10 +568,12 @@ export default function BahanBakuPage() {
       setIsLoading(true);
       try {
         const mats = await getMaterials();
-        const mapped = mats.map(m => ({
+        const mapped = mats.map((m) => ({
           id: m.kode || "",
           nama: m.nama,
-          kategori: m.kategoriId.startsWith("cat-") ? m.kategoriId.replace("cat-", "") : m.kategoriId,
+          kategori: m.kategoriId.startsWith("cat-")
+            ? m.kategoriId.replace("cat-", "")
+            : m.kategoriId,
           satuan: m.satuan,
           stok: m.stokAktual,
           stokMin: m.stokMin,
@@ -357,9 +592,14 @@ export default function BahanBakuPage() {
 
   const kategoriFilter = ["Semua", ...kategoriOptions];
 
-  const filtered = data.filter(b => {
-    const matchSearch = search === "" || b.nama.toLowerCase().includes(search.toLowerCase()) || b.kategori.toLowerCase().includes(search.toLowerCase());
-    const matchKategori = filterKategori === "Semua" || b.kategori.toLowerCase() === filterKategori.toLowerCase();
+  const filtered = data.filter((b) => {
+    const matchSearch =
+      search === "" ||
+      b.nama.toLowerCase().includes(search.toLowerCase()) ||
+      b.kategori.toLowerCase().includes(search.toLowerCase());
+    const matchKategori =
+      filterKategori === "Semua" ||
+      b.kategori.toLowerCase() === filterKategori.toLowerCase();
     return matchSearch && matchKategori;
   });
 
@@ -379,7 +619,19 @@ export default function BahanBakuPage() {
         harga: +form.hargaSatuan,
         lokasiGudang: form.keterangan,
       });
-      setData(prev => [...prev, { id: newId, nama: form.nama, kategori: form.kategori, satuan: form.satuan, stok: +form.stok, stokMin: +form.stokMin, hargaSatuan: +form.hargaSatuan, keterangan: form.keterangan }]);
+      setData((prev) => [
+        ...prev,
+        {
+          id: newId,
+          nama: form.nama,
+          kategori: form.kategori,
+          satuan: form.satuan,
+          stok: +form.stok,
+          stokMin: +form.stokMin,
+          hargaSatuan: +form.hargaSatuan,
+          keterangan: form.keterangan,
+        },
+      ]);
     } catch (e) {
       console.error(e);
     }
@@ -397,7 +649,22 @@ export default function BahanBakuPage() {
         harga: +form.hargaSatuan,
         lokasiGudang: form.keterangan,
       });
-      setData(prev => prev.map(b => b.id === modalEdit.id ? { ...b, nama: form.nama, kategori: form.kategori, satuan: form.satuan, stok: +form.stok, stokMin: +form.stokMin, hargaSatuan: +form.hargaSatuan, keterangan: form.keterangan } : b));
+      setData((prev) =>
+        prev.map((b) =>
+          b.id === modalEdit.id
+            ? {
+                ...b,
+                nama: form.nama,
+                kategori: form.kategori,
+                satuan: form.satuan,
+                stok: +form.stok,
+                stokMin: +form.stokMin,
+                hargaSatuan: +form.hargaSatuan,
+                keterangan: form.keterangan,
+              }
+            : b
+        )
+      );
     } catch (e) {
       console.error(e);
     }
@@ -407,7 +674,7 @@ export default function BahanBakuPage() {
     if (!modalDelete) return;
     try {
       await deleteMaterial(modalDelete.id);
-      setData(prev => prev.filter(b => b.id !== modalDelete.id));
+      setData((prev) => prev.filter((b) => b.id !== modalDelete.id));
       setModalDelete(null);
     } catch (e) {
       console.error(e);
@@ -443,7 +710,6 @@ export default function BahanBakuPage() {
           <button
             onClick={() => setModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg text-white hover:opacity-90 transition-all active:scale-[0.98]"
-            style={{ background: BRAND }}
           >
             <Plus className="h-4 w-4" />
             <span>Tambah Bahan</span>
@@ -663,14 +929,14 @@ export default function BahanBakuPage() {
         initial={
           modalEdit
             ? {
-              nama: modalEdit.nama,
-              kategori: modalEdit.kategori,
-              satuan: modalEdit.satuan,
-              stok: String(modalEdit.stok),
-              stokMin: String(modalEdit.stokMin),
-              hargaSatuan: String(modalEdit.hargaSatuan),
-              keterangan: modalEdit.keterangan,
-            }
+                nama: modalEdit.nama,
+                kategori: modalEdit.kategori,
+                satuan: modalEdit.satuan,
+                stok: String(modalEdit.stok),
+                stokMin: String(modalEdit.stokMin),
+                hargaSatuan: String(modalEdit.hargaSatuan),
+                keterangan: modalEdit.keterangan,
+              }
             : undefined
         }
         mode="edit"

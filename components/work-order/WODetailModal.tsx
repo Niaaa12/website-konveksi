@@ -205,7 +205,7 @@ export function WODetailModal({
           {tab === "tahap" && wo.id && (
             <div className="px-6 py-5">
               <p className="text-xs text-muted-foreground mb-4">
-                Data diperbarui otomatis saat PIC menyimpan progress dari HP.
+                Data diperbarui otomatis saat PIC menyimpan progress.
               </p>
               <TahapProduksiPanel woId={wo.id} jumlahTarget={wo.jumlahTarget} />
             </div>

@@ -30,7 +30,7 @@ export function TahapProduksiPanel({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Real-time listener — update otomatis saat PIC menyimpan progress dari HP
+    // Real-time listener — update otomatis saat PIC menyimpan progress
     const unsub = listenTahapProduksi(woId, (data) => {
       setTahapList(data);
       setLoading(false);
