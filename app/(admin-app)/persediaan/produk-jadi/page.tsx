@@ -165,6 +165,33 @@ export default function MasterProdukJadiPage() {
         catatan: transferCatatan || "Transfer cepat dari Master Produk Jadi",
         dibuatOleh: currentUserId || "Sistem",
       });
+
+      await fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sendToAll: true,
+          title: "📦 Info Transfer Gudang",
+          body: `${transferJumlah} pcs produk ${transferTarget.productName} varian ${transferTarget.warna} dikirim ke Gudang Packing.`,
+          link: "/persediaan/transfer",
+        }),
+      });
+
+     const sisaStokBesar = transferTarget.stokBesar - transferJumlah;
+      if (sisaStokBesar <= transferTarget.stokMin) {
+        await fetch("/api/send-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sendToAll: true,
+            title: "⚠️ Stok Gudang Besar Menipis!",
+            body: `Setelah transfer, stok ${transferTarget.productName} di Gudang Besar tersisa ${sisaStokBesar} pcs.`,
+            link: "/persediaan/produk-jadi",
+          }),
+        });
+      }
+
+      // 4. Kode asli Anda untuk mereset form dan memuat ulang data
       setTransferTarget(null);
       setTransferJumlah(0);
       setTransferCatatan("");

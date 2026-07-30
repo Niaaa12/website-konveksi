@@ -105,11 +105,15 @@ function StepperTahap({ tahapList }: { tahapList: TahapProduksi[] }) {
 
 function FormUpdateTahap({
   woId,
+  nomorWO,
+  tanggalTarget,
   tahap,
   picId,
   onSelesai,
 }: {
   woId: string;
+  nomorWO: string;
+  tanggalTarget: string;
   tahap: TahapProduksi;
   picId: string;
   onSelesai: () => void;
@@ -157,6 +161,24 @@ function FormUpdateTahap({
         status: statusBaru,
         picId,
       });
+
+      const today = new Date().toISOString().slice(0, 10);
+
+      // Jika hari ini sudah melewati tanggal target, kirim notifikasi
+      if (tanggalTarget < today) {
+        await fetch("/api/send-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sendToAll: true,
+            title: "🚨 Peringatan WO Terlambat!",
+            body: `PIC baru saja mengupdate Tahap ${tahap.tahap} untuk WO ${nomorWO}. WO ini telah melewati tenggat waktu (${tanggalTarget}).`,
+            link: "/produksi/work-order",
+          }),
+        });
+      }
+
+      // 3. Kode asli untuk menutup form[cite: 7]
       onSelesai();
     } catch (e: any) {
       setError(e.message ?? "Gagal menyimpan. Coba lagi.");
@@ -523,6 +545,8 @@ function KartuWO({
                     {isAktif && bisaUpdate && (
                       <FormUpdateTahap
                         woId={wo.id!}
+                        nomorWO={wo.nomor}
+                        tanggalTarget={wo.tanggalTarget}
                         tahap={tahap}
                         picId={picId}
                         onSelesai={() => {

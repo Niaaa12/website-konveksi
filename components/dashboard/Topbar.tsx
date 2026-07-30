@@ -26,6 +26,7 @@ import {
   getWorkOrders,
   type ProductVariant,
 } from "@/lib/firestore";
+import { requestNotificationPermission, onForegroundMessage } from "@/lib/fcm";
 
 interface TopbarProps {
   onMenuClick: () => void;
@@ -69,6 +70,36 @@ export function TopBar({ onMenuClick, title, subtitle }: TopbarProps) {
       .toUpperCase()
       .slice(0, 2)
     : "NC";
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    if (user?.uid) {
+      requestNotificationPermission(user.uid);
+
+      onForegroundMessage((payload: any) => {
+        console.log("Notifikasi Foreground Diterima:", payload);
+        const title = payload?.notification?.title || payload?.data?.title || "Notifikasi Baru";
+        const body = payload?.notification?.body || payload?.data?.body || "Ada pembaruan pada sistem.";
+
+        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+          new Notification(title, {
+            body,
+            icon: "/favicon.ico",
+          });
+        }
+      }).then((unsub) => {
+        if (typeof unsub === "function") {
+          unsubscribe = unsub;
+        }
+      });
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user]);
+    
 
   // Ambil data notifikasi: Difilter berdasarkan Role Pengguna
   useEffect(() => {

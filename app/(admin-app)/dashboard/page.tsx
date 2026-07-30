@@ -115,7 +115,7 @@ export default function DashboardPage() {
     []
   );
 
-  const [kritisPacking, setKritisPacking] = useState<any[]>([]);
+  // const [kritisPacking, setKritisPacking] = useState<any[]>([]);
   const [transferTarget, setTransferTarget] = useState<any | null>(null);
   const [transferJumlah, setTransferJumlah] = useState<number>(0);
   const [transferring, setTransferring] = useState(false);
@@ -125,7 +125,10 @@ export default function DashboardPage() {
   async function handleTransferSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!transferTarget) return;
-    if (transferJumlah <= 0 || transferJumlah > transferTarget.stokGudangBesar) {
+    if (
+      transferJumlah <= 0 ||
+      transferJumlah > transferTarget.stokGudangBesar
+    ) {
       setTransferError("Jumlah transfer tidak valid.");
       return;
     }
@@ -142,7 +145,8 @@ export default function DashboardPage() {
         jumlah: transferJumlah,
         tanggalTransfer: new Date().toISOString().slice(0, 10),
         catatan: "Transfer cepat dari Dashboard Peringatan Stok",
-        dibuatOleh: currentUser?.displayName ?? currentUser?.email ?? "Kepala Gudang",
+        dibuatOleh:
+          currentUser?.displayName ?? currentUser?.email ?? "Kepala Gudang",
       });
       setTransferTarget(null);
       // Reload
@@ -163,43 +167,44 @@ export default function DashboardPage() {
           setCurrentUser(auth.currentUser);
         }
 
-        const [dashStats, materials, units, wos, prods, kpVars] = await Promise.all([
-          getDashboardStats().catch((e) => {
-            console.error("❌ getDashboardStats error:", e);
-            return {
-              woAktif: 0,
-              woTertunda: 0,
-              woDijadwalkan: 0,
-              stokKritis: 0,
-              totalProgress: 0,
-              totalTarget: 0,
-            };
-          }),
-          getMaterials().catch((e) => {
-            console.error("❌ getMaterials error:", e);
-            return [];
-          }),
-          getProductionUnits().catch((e) => {
-            console.error("❌ getProductionUnits error:", e);
-            return [];
-          }),
-          getWorkOrders().catch((e) => {
-            console.error("❌ getWorkOrders error:", e);
-            return [];
-          }),
-          getProducts().catch((e) => {
-            console.error("❌ getProducts error:", e);
-            return [];
-          }),
-          getKritisPackingVariants().catch((e) => {
-            console.error("❌ getKritisPackingVariants error:", e);
-            return [];
-          }),
-        ]);
+        const [dashStats, materials, units, wos, prods, kpVars] =
+          await Promise.all([
+            getDashboardStats().catch((e) => {
+              console.error("❌ getDashboardStats error:", e);
+              return {
+                woAktif: 0,
+                woTertunda: 0,
+                woDijadwalkan: 0,
+                stokKritis: 0,
+                totalProgress: 0,
+                totalTarget: 0,
+              };
+            }),
+            getMaterials().catch((e) => {
+              console.error("❌ getMaterials error:", e);
+              return [];
+            }),
+            getProductionUnits().catch((e) => {
+              console.error("❌ getProductionUnits error:", e);
+              return [];
+            }),
+            getWorkOrders().catch((e) => {
+              console.error("❌ getWorkOrders error:", e);
+              return [];
+            }),
+            getProducts().catch((e) => {
+              console.error("❌ getProducts error:", e);
+              return [];
+            }),
+            getKritisPackingVariants().catch((e) => {
+              console.error("❌ getKritisPackingVariants error:", e);
+              return [];
+            }),
+          ]);
 
         setStats(dashStats);
         setUnitsList(units);
-        setKritisPacking(kpVars);
+        // setKritisPacking(kpVars);
 
         // Sum inventory value
         const totalVal = materials.reduce(
@@ -210,10 +215,11 @@ export default function DashboardPage() {
 
         // Average efficiency
         const avgEff =
-          units.length > 0
+          Array.isArray(units) && units.length > 0
             ? Math.round(
-              units.reduce((sum, u) => sum + u.efisiensi, 0) / units.length
-            )
+                units.reduce((sum, u) => sum + Number(u?.efisiensi || 0), 0) /
+                  units.length
+              )
             : 0;
         setEfisiensiProd(avgEff);
 
@@ -302,7 +308,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Alert Kritis Gudang Packing */}
-      {kritisPacking.length > 0 && (
+      {/* {kritisPacking.length > 0 && (
         <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -360,11 +366,11 @@ export default function DashboardPage() {
               );
             })}
           </div>
-        </div>
-      )}
+        </div> */}
+      {/* )} */}
 
       {/* Alert Kritis */}
-      {stats.stokKritis > 0 && (
+      {/* {stats.stokKritis > 0 && (
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
           <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
@@ -383,7 +389,7 @@ export default function DashboardPage() {
             Lihat <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
-      )}
+      )} */}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -650,7 +656,9 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <h3 className="text-sm font-semibold text-foreground">Proses Transfer Stok Cepat</h3>
+              <h3 className="text-sm font-semibold text-foreground">
+                Proses Transfer Stok Cepat
+              </h3>
               <button
                 onClick={() => setTransferTarget(null)}
                 className="rounded-lg p-1 hover:bg-muted/50 transition-colors text-muted-foreground"
@@ -664,7 +672,9 @@ export default function DashboardPage() {
                 <div className="rounded-xl bg-muted/40 p-4 space-y-1.5 text-xs text-foreground">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Produk:</span>
-                    <span className="font-semibold text-right">{transferTarget.productName}</span>
+                    <span className="font-semibold text-right">
+                      {transferTarget.productName}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Varian:</span>
@@ -674,29 +684,37 @@ export default function DashboardPage() {
                   </div>
                   <hr className="border-border my-1.5" />
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Stok Gudang Besar:</span>
+                    <span className="text-muted-foreground">
+                      Stok Gudang Besar:
+                    </span>
                     <span className="font-mono font-semibold text-emerald-600">
                       {transferTarget.stokGudangBesar} pcs
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Stok Gudang Packing:</span>
+                    <span className="text-muted-foreground">
+                      Stok Gudang Packing:
+                    </span>
                     <span className="font-mono text-red-500">
-                      {transferTarget.stokGudangPacking} pcs (min. {transferTarget.stokMin})
+                      {transferTarget.stokGudangPacking} pcs (min.{" "}
+                      {transferTarget.stokMin})
                     </span>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium mb-1.5 text-foreground">
-                    Jumlah Transfer (pcs) <span className="text-red-500">*</span>
+                    Jumlah Transfer (pcs){" "}
+                    <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
                     min={1}
                     max={transferTarget.stokGudangBesar}
                     value={transferJumlah}
-                    onChange={(e) => setTransferJumlah(Math.max(1, Number(e.target.value)))}
+                    onChange={(e) =>
+                      setTransferJumlah(Math.max(1, Number(e.target.value)))
+                    }
                     className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30"
                     required
                   />

@@ -143,8 +143,37 @@ export default function TransferGudangPage() {
         dibuatOleh: currentUserNama,
       });
 
+      await fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sendToAll: true,
+          title: "📦 Info Transfer Gudang Baru",
+          body: `${jumlah} pcs ${selectedProduct?.nama} (${selectedVariant?.namaWarna}) telah ditransfer oleh ${currentUserNama}.`,
+          link: "/persediaan/transfer",
+        }),
+      });
+
+      if (selectedVariant) {
+        const sisaStokBesar = selectedVariant.stokJadi - jumlah;
+        const batasMin = selectedVariant.stokMin ?? 20; // Menggunakan 20 sebagai default jika kosong
+
+        if (sisaStokBesar <= batasMin) {
+          await fetch("/api/send-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sendToAll: true,
+              title: "⚠️ Stok Gudang Besar Menipis!",
+              body: `Setelah transfer barusan, stok ${selectedProduct?.nama} (${selectedVariant?.namaWarna}) di Gudang Besar sisa ${sisaStokBesar} pcs.`,
+              link: "/persediaan/transfer",
+            }),
+          });
+        }
+      }
+
+      // 4. Kode asli Anda untuk mereset form
       setIsModalOpen(false);
-      // Reset form
       setSelectedProductId("");
       setSelectedVariantId("");
       setJumlah(0);
@@ -152,6 +181,7 @@ export default function TransferGudangPage() {
       setCatatan("");
       await loadData();
     } catch (err: any) {
+      // Kode asli Anda untuk menangani error
       setError(err.message ?? "Gagal memproses transfer.");
     } finally {
       setSaving(false);

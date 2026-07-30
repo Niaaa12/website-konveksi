@@ -9,7 +9,7 @@ import {
 import { Loader2, X, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase"; // Pastikan path db firebase sesuai
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 export function MaterialHistoryModal({
   material,
@@ -72,7 +72,7 @@ export function MaterialHistoryModal({
               userMap[uid] =
                 userDoc.data().nama || userDoc.data().email || uid.slice(0, 8);
             } else {
-              userMap[uid] = uid; // Jika string-nya bukan UID (misal tertulis "Sistem" atau nama langsung)
+              userMap[uid] = uid; 
             }
           } catch {
             userMap[uid] = uid;

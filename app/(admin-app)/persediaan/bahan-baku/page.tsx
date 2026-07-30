@@ -598,7 +598,10 @@ function KelolaKategoriModal({
           <h2 className="text-sm font-semibold flex items-center gap-2">
             <Tags className="h-4 w-4" /> Kelola Kategori
           </h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-muted/50">
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 hover:bg-muted/50"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -625,16 +628,24 @@ function KelolaKategoriModal({
 
           {/* List Kategori */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground mb-3">Daftar Kategori Saat Ini</p>
+            <p className="text-xs font-medium text-muted-foreground mb-3">
+              Daftar Kategori Saat Ini
+            </p>
             {kategoriList.length === 0 ? (
-              <p className="text-xs text-center py-4 text-muted-foreground border border-dashed rounded-lg">Belum ada kategori.</p>
+              <p className="text-xs text-center py-4 text-muted-foreground border border-dashed rounded-lg">
+                Belum ada kategori.
+              </p>
             ) : (
               kategoriList.map((k) => (
-                <div key={k.id} className="flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background">
+                <div
+                  key={k.id}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background"
+                >
                   <span className="text-sm font-medium">{k.nama}</span>
                   <button
                     onClick={() => {
-                      if (window.confirm(`Hapus kategori ${k.nama}?`)) onDelete(k.id);
+                      if (window.confirm(`Hapus kategori ${k.nama}?`))
+                        onDelete(k.id);
                     }}
                     className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
                   >
@@ -673,47 +684,46 @@ export default function BahanBakuPage() {
     setCurrentPage(1);
   }, [search, filterKategori]);
 
-  useEffect(() => {
-    async function load() {
-      setIsLoading(true);
-      try {
-        const [mats, cats] = await Promise.all([
-          getMaterials(),
-          getMaterialCategories(),
-        ]);
+  async function loadData() {
+    setIsLoading(true);
+    try {
+      const [mats, cats] = await Promise.all([
+        getMaterials(),
+        getMaterialCategories(),
+      ]);
 
-        setKategoriList(cats);
+      setKategoriList(cats);
 
-        const mapped = mats.map((m: any) => {
-          // Cari nama kategori dari array cats berdasarkan ID-nya
-          // Jika tidak ketemu (misal data lama), hapus kata 'cat-' nya
-          const matchedCategory = cats.find((c) => c.id === m.kategoriId);
-          const namaKategori = matchedCategory
-            ? matchedCategory.nama
-            : m.kategoriId.startsWith("cat-")
-            ? m.kategoriId.replace("cat-", "")
-            : m.kategoriId;
+      const mapped = mats.map((m: any) => {
+        const matchedCategory = cats.find((c) => c.id === m.kategoriId);
+        const namaKategori = matchedCategory
+          ? matchedCategory.nama
+          : m.kategoriId.startsWith("cat-")
+          ? m.kategoriId.replace("cat-", "")
+          : m.kategoriId;
 
-          return {
-            id: m.id,
-            kode: m.kode || "",
-            nama: m.nama,
-            kategori: namaKategori, // <--- Sekarang menyimpan Nama, bukan ID
-            satuan: m.satuan,
-            stok: m.stokAktual,
-            stokMin: m.stokMin,
-            hargaSatuan: m.harga,
-            keterangan: m.lokasiGudang || "",
-          };
-        });
-        setData(mapped);
-      } catch (err) {
-        console.error("Failed to load materials", err);
-      } finally {
-        setIsLoading(false);
-      }
+        return {
+          id: m.id,
+          kode: m.kode || "",
+          nama: m.nama,
+          kategori: namaKategori,
+          satuan: m.satuan,
+          stok: m.stokAktual,
+          stokMin: m.stokMin,
+          hargaSatuan: m.harga,
+          keterangan: m.lokasiGudang || "",
+        };
+      });
+      setData(mapped);
+    } catch (err) {
+      console.error("Failed to load materials", err);
+    } finally {
+      setIsLoading(false);
     }
-    load();
+  }
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   async function handleAddKategori(nama: string) {
@@ -799,6 +809,7 @@ export default function BahanBakuPage() {
   async function handleEdit(form: BahanForm) {
     if (!modalEdit) return;
     try {
+      // 1. Simpan perubahan stok ke database
       await updateMaterial(modalEdit.id, {
         nama: form.nama,
         kategoriId: form.kategori,
@@ -808,22 +819,22 @@ export default function BahanBakuPage() {
         harga: +form.hargaSatuan,
         lokasiGudang: form.keterangan,
       });
-      setData((prev) =>
-        prev.map((b) =>
-          b.id === modalEdit.id
-            ? {
-                ...b,
-                nama: form.nama,
-                kategori: form.kategori,
-                satuan: form.satuan,
-                stok: +form.stok,
-                stokMin: +form.stokMin,
-                hargaSatuan: +form.hargaSatuan,
-                keterangan: form.keterangan,
-              }
-            : b
-        )
-      );
+
+      // 2. >>> PASANG ALARM FCM <<<
+      if (+form.stok <= +form.stokMin) {
+        await fetch("/api/send-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sendToAll: true,
+            title: "⚠️ Stok Bahan Baku Kritis!",
+            body: `Stok bahan ${form.nama} tersisa ${form.stok}. Segera lakukan pemesanan!`,
+            link: "/persediaan/bahan-baku",
+          }),
+        });
+      }
+
+      await loadData();
     } catch (e) {
       console.error(e);
     }
