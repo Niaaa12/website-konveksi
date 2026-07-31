@@ -5,6 +5,8 @@ import {
   onAuthStateChanged,
   User,
   AuthError,
+  GoogleAuthProvider, 
+  signInWithPopup,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
@@ -108,6 +110,55 @@ export async function loginWithEmail(
     // Catat waktu login terakhir
     await setDoc(
       doc(db, "users", credential.user.uid),
+      { lastLogin: serverTimestamp() },
+      { merge: true }
+    );
+
+    return { success: true, user: profile };
+  } catch (err) {
+    const authErr = err as AuthError;
+    return { success: false, error: pesanError(authErr.code) };
+  }
+}
+
+// ── Login dengan Google ──────────────────────────────────────────────
+export async function loginWithGoogle(): Promise<AuthResult> {
+  try {
+    const provider = new GoogleAuthProvider();
+    const credential = await signInWithPopup(auth, provider);
+    const user = credential.user;
+
+    // Cek apakah user sudah punya profil di Firestore
+    let profile = await getUserProfile(user.uid);
+
+    // Jika ini adalah pertama kalinya login pakai Google (belum ada profil)
+    if (!profile) {
+      // Kita buatkan profil otomatis. (Anda bisa ubah default role-nya di sini)
+      const defaultRole: UserRole = "picproduksi"; 
+      await createUserProfile(
+        user.uid,
+        user.email ?? "",
+        user.displayName ?? "Pengguna Google",
+        defaultRole,
+        "Staf" // Jabatan default
+      );
+      // Ambil kembali profil yang baru dibuat
+      profile = await getUserProfile(user.uid);
+    }
+
+    if (!profile) {
+      await signOut(auth);
+      return { success: false, error: "Gagal memuat profil pengguna." };
+    }
+
+    if (!profile.aktif) {
+      await signOut(auth);
+      return { success: false, error: "Akun Anda telah dinonaktifkan. Hubungi admin." };
+    }
+
+    // Catat waktu login terakhir
+    await setDoc(
+      doc(db, "users", user.uid),
       { lastLogin: serverTimestamp() },
       { merge: true }
     );
