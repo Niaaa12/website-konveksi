@@ -25,12 +25,26 @@ import {
 import { getAuth } from "firebase/auth";
 import { cn } from "@/lib/utils";
 import { useRBAC } from "@/hooks/useRBAC";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 
 export default function PengeluaranProdukPage() {
   const [outflows, setOutflows] = useState<any[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
 
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,8 +82,8 @@ export default function PengeluaranProdukPage() {
       ]);
       setOutflows(listOut);
       setProducts(listProds);
-    } catch (e) {
-      console.error("Gagal memuat data pengeluaran:", e);
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data pengeluaran. Periksa koneksi internet Anda." });
     } finally {
       setLoading(false);
     }
@@ -154,9 +168,15 @@ export default function PengeluaranProdukPage() {
       setTanggal(new Date().toISOString().slice(0, 10));
       setPelanggan("");
       setCatatan("");
+
+      setSuccessPopup({
+        isOpen: true,
+        message: `Pengeluaran produk sebanyak ${jumlah} pcs berhasil dicatat!`,
+      });
+
       await loadData();
     } catch (err: any) {
-      setError(err.message ?? "Gagal memproses pengeluaran produk.");
+      setErrorPopup({ isOpen: true, message: err?.message ?? "Gagal memproses pengeluaran produk. Coba lagi." });
     } finally {
       setSaving(false);
     }
@@ -448,6 +468,17 @@ export default function PengeluaranProdukPage() {
           </div>
         </div>
       )}
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

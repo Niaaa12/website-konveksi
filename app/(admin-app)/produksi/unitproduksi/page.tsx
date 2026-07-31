@@ -12,6 +12,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
 import { useRBAC } from "@/hooks/useRBAC";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 import {
   Plus,
   Loader2,
@@ -382,6 +384,18 @@ export default function UnitProduksiPage() {
   const [deleteTarget, setDeleteTarget] = useState<ProductionUnit | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
   const { can } = useRBAC();
   const canWrite = can(["admin", "kepalaTimProduksi"]);
 
@@ -392,8 +406,8 @@ export default function UnitProduksiPage() {
       // dari histori Work Order — bukan mengambil angka statis dari Firestore.
       const data = await getProductionUnitsWithEfisiensi();
       setUnits(data);
-    } catch (e) {
-      console.error("getProductionUnitsWithEfisiensi:", e);
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data unit produksi. Periksa koneksi internet Anda." });
     } finally {
       setLoading(false);
     }
@@ -408,18 +422,44 @@ export default function UnitProduksiPage() {
   }, [search, filterKategori, filterStatus]);
 
   async function handleSave(data: UnitForm, id?: string) {
-    if (id) await updateProductionUnit(id, data);
-    else await createProductionUnit({ ...data, efisiensi: 0 }); // efisiensi awal 0, dihitung ulang otomatis saat ada WO
+    if (id) {
+      try {
+        await updateProductionUnit(id, data);
+        setSuccessPopup({
+          isOpen: true,
+          message: `Unit produksi ${data.nama} berhasil diperbarui!`,
+        });
+      } catch (e: any) {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memperbarui unit produksi. Coba lagi." });
+      }
+    } else {
+      try {
+        await createProductionUnit({ ...data, efisiensi: 0 });
+        setSuccessPopup({
+          isOpen: true,
+          message: `Unit produksi ${data.nama} berhasil ditambahkan!`,
+        });
+      } catch (e: any) {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal menambah unit produksi. Coba lagi." });
+      }
+    }
     await loadData();
   }
 
   async function handleDelete() {
     if (!deleteTarget?.id) return;
+    const deletedNama = deleteTarget.nama;
     setDeleting(true);
     try {
       await deleteProductionUnit(deleteTarget.id);
       setDeleteTarget(null);
+      setSuccessPopup({
+        isOpen: true,
+        message: `Unit produksi ${deletedNama} berhasil dihapus!`,
+      });
       await loadData();
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal menghapus unit produksi. Coba lagi." });
     } finally {
       setDeleting(false);
     }
@@ -775,6 +815,17 @@ export default function UnitProduksiPage() {
           </div>
         </div>
       )}
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

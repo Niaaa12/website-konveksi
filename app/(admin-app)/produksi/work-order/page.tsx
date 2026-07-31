@@ -34,6 +34,8 @@ import { WODetailModal } from "@/components/work-order/WODetailModal";
 import { WODeleteConfirm } from "@/components/work-order/WODeleteConfirm";
 import { Pagination } from "@/components/ui/Pagination";
 import { useRBAC } from "@/hooks/useRBAC";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 import {
   Plus,
   Loader2,
@@ -109,6 +111,18 @@ function WorkOrderPageContent() {
   const [deleteTarget, setDeleteTarget] = useState<WorkOrder | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
   const searchParams = useSearchParams();
   const { can } = useRBAC();
   const canWrite = can(["admin", "kepalaTimProduksi"]);
@@ -146,20 +160,20 @@ function WorkOrderPageContent() {
   async function loadData() {
     setLoading(true);
     const [wos, prods, us, ops] = await Promise.all([
-      getWorkOrders().catch((e) => {
-        console.error("getWorkOrders:", e);
+      getWorkOrders().catch((e: any) => {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat Work Order. Periksa koneksi internet Anda." });
         return [];
       }),
-      getProducts().catch((e) => {
-        console.error("getProducts:", e);
+      getProducts().catch((e: any) => {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data produk." });
         return [];
       }),
-      getProductionUnits().catch((e) => {
-        console.error("getProductionUnits:", e);
+      getProductionUnits().catch((e: any) => {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat unit produksi." });
         return [];
       }),
-      getOperators().catch((e) => {
-        console.error("getOperators:", e);
+      getOperators().catch((e: any) => {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data operator." });
         return [];
       }),
     ]);
@@ -202,20 +216,44 @@ function WorkOrderPageContent() {
       dibuatOleh: existingWO?.dibuatOleh ?? "",
       catatan: data.catatan,
     };
-    if (id) await updateWorkOrder(id, payload);
-    // Saat membuat WO baru, fungsi createWorkOrder di firestore.ts akan otomatis
-    // memotong stok bahan baku berdasarkan BOM varian yang dipilih!
-    else await createWorkOrder(payload);
+    if (id) {
+      try {
+        await updateWorkOrder(id, payload);
+        setSuccessPopup({
+          isOpen: true,
+          message: `Work Order ${data.nomor} berhasil diperbarui!`,
+        });
+      } catch (e: any) {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memperbarui Work Order. Coba lagi." });
+      }
+    } else {
+      try {
+        await createWorkOrder(payload);
+        setSuccessPopup({
+          isOpen: true,
+          message: `Work Order ${data.nomor} berhasil dibuat!`,
+        });
+      } catch (e: any) {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal membuat Work Order. Coba lagi." });
+      }
+    }
     await loadData();
   }
 
   async function handleDelete() {
     if (!deleteTarget?.id) return;
+    const nomorWO = deleteTarget.nomor;
     setDeleting(true);
     try {
       await deleteWorkOrder(deleteTarget.id);
       setDeleteTarget(null);
+      setSuccessPopup({
+        isOpen: true,
+        message: `Work Order ${nomorWO} berhasil dihapus!`,
+      });
       await loadData();
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal menghapus Work Order. Coba lagi." });
     } finally {
       setDeleting(false);
     }
@@ -562,6 +600,17 @@ function WorkOrderPageContent() {
           onConfirm={handleDelete}
         />
       )}
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

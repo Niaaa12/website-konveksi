@@ -6,12 +6,26 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { User, Building, Lock, Save, Shield, CheckCircle2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 
 export default function PengaturanPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
 
   // State Form Profil
   const [nama, setNama] = useState("");
@@ -42,8 +56,8 @@ export default function PengaturanPage() {
           setJabatan(data.jabatan || "");
           setRole(data.role || "");
         }
-      } catch (err) {
-        console.error("Gagal mengambil data user:", err);
+      } catch (err: any) {
+        setErrorPopup({ isOpen: true, message: err?.message ?? "Gagal memuat data profil. Periksa koneksi internet Anda." });
       } finally {
         setLoading(false);
       }
@@ -65,9 +79,12 @@ export default function PengaturanPage() {
         jabatan,
       });
       setSuccessMessage("Profil berhasil diperbarui!");
+      setSuccessPopup({
+        isOpen: true,
+        message: "Profil berhasil diperbarui!",
+      });
     } catch (err: any) {
-      console.error(err);
-      setErrorMessage("Gagal memperbarui profil: " + err.message);
+      setErrorPopup({ isOpen: true, message: err?.message ?? "Gagal memperbarui profil. Coba lagi." });
     } finally {
       setSaving(false);
     }
@@ -96,11 +113,14 @@ export default function PengaturanPage() {
 
       await updatePassword(user, newPassword);
       setPasswordSuccess("Kata sandi berhasil diubah!");
+      setSuccessPopup({
+        isOpen: true,
+        message: "Kata sandi berhasil diubah!",
+      });
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      console.error(err);
-      setPasswordError("Gagal mengubah kata sandi: " + err.message);
+      setErrorPopup({ isOpen: true, message: err?.message ?? "Gagal mengubah kata sandi. Pastikan Anda baru saja login dan coba lagi." });
     } finally {
       setChangingPassword(false);
     }
@@ -295,6 +315,17 @@ export default function PengaturanPage() {
           </div>
         </div>
       </div>
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

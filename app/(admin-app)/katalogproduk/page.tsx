@@ -30,6 +30,8 @@ import {
 } from "@/lib/firestore";
 import { cn } from "@/lib/utils";
 import { useRBAC } from "@/hooks/useRBAC";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 import {
   Plus,
   Search,
@@ -1600,10 +1602,12 @@ function KategoriModal({
   categories,
   onClose,
   onRefresh,
+  onSuccess,
 }: {
   categories: ProductCategory[];
   onClose: () => void;
   onRefresh: () => Promise<void>;
+  onSuccess?: (msg: string) => void;
 }) {
   const emptyForm = { nama: "", deskripsi: "" };
   const [form, setForm] = useState(emptyForm);
@@ -1640,16 +1644,18 @@ function KategoriModal({
           nama: form.nama.trim(),
           deskripsi: form.deskripsi.trim(),
         });
+        onSuccess?.(`Kategori ${form.nama} berhasil diperbarui!`);
       } else {
         await createProductCategory({
           nama: form.nama.trim(),
           deskripsi: form.deskripsi.trim(),
         });
+        onSuccess?.(`Kategori ${form.nama} berhasil ditambahkan!`);
       }
       await onRefresh();
       resetForm();
-    } catch (e) {
-      setError("Gagal menyimpan. Coba lagi.");
+    } catch (e: any) {
+      setError(e?.message ?? "Gagal menyimpan. Coba lagi.");
     } finally {
       setSaving(false);
     }
@@ -1657,12 +1663,14 @@ function KategoriModal({
 
   async function handleDelete() {
     if (!deleteTarget?.id) return;
+    const deletedNama = deleteTarget.nama;
     setDeleting(true);
     try {
       await deleteProductCategory(deleteTarget.id);
       await onRefresh();
       setDeleteTarget(null);
-    } catch (e) {
+      onSuccess?.(`Kategori ${deletedNama} berhasil dihapus!`);
+    } catch (e: any) {
       setError(
         "Gagal menghapus. Pastikan tidak ada produk dengan kategori ini."
       );
@@ -1893,6 +1901,18 @@ export default function KatalogProdukPage() {
   const [deleting, setDeleting] = useState(false);
   const [showKategoriModal, setShowKategoriModal] = useState(false);
 
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
   const { can } = useRBAC();
   const canWrite = can(["admin", "kepalaTimProduksi"]);
 
@@ -1952,17 +1972,33 @@ export default function KatalogProdukPage() {
   }, []);
 
   async function handleSave(data: ProductForm, id?: string) {
-    if (id) await updateProduct(id, data);
-    else await createProduct(data);
+    if (id) {
+      await updateProduct(id, data);
+      setSuccessPopup({
+        isOpen: true,
+        message: `Produk ${data.nama} berhasil diperbarui!`,
+      });
+    } else {
+      await createProduct(data);
+      setSuccessPopup({
+        isOpen: true,
+        message: `Produk ${data.nama} berhasil ditambahkan!`,
+      });
+    }
     await loadData();
   }
 
   async function handleDelete() {
     if (!deleteTarget?.id) return;
+    const deletedNama = deleteTarget.nama;
     setDeleting(true);
     try {
       await deleteProduct(deleteTarget.id);
       setDeleteTarget(null);
+      setSuccessPopup({
+        isOpen: true,
+        message: `Produk ${deletedNama} berhasil dihapus!`,
+      });
       await loadData();
     } finally {
       setDeleting(false);
@@ -2164,6 +2200,9 @@ export default function KatalogProdukPage() {
               categories={categories}
               onClose={() => setShowKategoriModal(false)}
               onRefresh={loadCategories}
+              onSuccess={(msg) =>
+                setSuccessPopup({ isOpen: true, message: msg })
+              }
             />
           )}
         </div>
@@ -2274,6 +2313,17 @@ export default function KatalogProdukPage() {
           </div>
         </div>
       )}
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

@@ -15,6 +15,8 @@ import {
 } from "@/lib/firestore";
 import { TAHAP_STATUS_CFG } from "@/components/work-order/work-order-shared";
 import { cn } from "@/lib/utils";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 import {
   Loader2,
   CheckCircle2,
@@ -110,6 +112,7 @@ function FormUpdateTahap({
   tahap,
   picId,
   onSelesai,
+  onSuccess,
 }: {
   woId: string;
   nomorWO: string;
@@ -117,6 +120,8 @@ function FormUpdateTahap({
   tahap: TahapProduksi;
   picId: string;
   onSelesai: () => void;
+  onSuccess?: (msg: string) => void;
+  onError?: (msg: string) => void;
 }) {
   const [jumlahSelesai, setJumlahSelesai] = useState(
     String(tahap.jumlahSelesai || 0)
@@ -178,10 +183,11 @@ function FormUpdateTahap({
         });
       }
 
-      // 3. Kode asli untuk menutup form[cite: 7]
+      onSuccess?.(`Progress tahap ${TAHAP_CONFIG[tahap.tahap]?.label ?? tahap.tahap} untuk ${nomorWO} berhasil diperbarui!`);
       onSelesai();
     } catch (e: any) {
-      setError(e.message ?? "Gagal menyimpan. Coba lagi.");
+      const msg = e?.message ?? "Gagal menyimpan progress. Coba lagi.";
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -350,11 +356,13 @@ function KartuWO({
   products,
   picId,
   onRefresh,
+  onSuccess,
 }: {
   wo: WODenganTahap;
   products: Record<string, string>;
   picId: string;
   onRefresh: () => void;
+  onSuccess?: (msg: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [tahapAktif, setTahapAktif] = useState<TahapId | null>(null);
@@ -553,6 +561,7 @@ function KartuWO({
                           setTahapAktif(null);
                           onRefresh();
                         }}
+                        onSuccess={onSuccess}
                       />
                     )}
                   </div>
@@ -578,6 +587,18 @@ export default function ProgressPICPage() {
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
   // State untuk tab aktif: "aktif" atau "selesai" (Riwayat)
   const [activeTab, setActiveTab] = useState<"aktif" | "selesai">("aktif");
 
@@ -596,8 +617,8 @@ export default function ProgressPICPage() {
     setLoading(true);
     try {
       const [woList, prodList] = await Promise.all([
-        getWOdanTahapByPIC(picId).catch((e) => {
-          console.error(e);
+        getWOdanTahapByPIC(picId).catch((e: any) => {
+          setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data progress. Periksa koneksi internet Anda." });
           return [];
         }),
         getProducts().catch(() => []),
@@ -782,10 +803,22 @@ export default function ProgressPICPage() {
               products={products}
               picId={picId!}
               onRefresh={loadData}
+              onSuccess={(msg) => setSuccessPopup({ isOpen: true, message: msg })}
             />
           ))
         )}
       </div>
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

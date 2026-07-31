@@ -22,6 +22,8 @@ import { app as firebaseApp, db } from "@/lib/firebase";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRBAC } from "@/hooks/useRBAC";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 import {
   Search,
   Plus,
@@ -618,14 +620,26 @@ export default function PenggunaPage() {
   const [resetSent, setResetSent] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
 
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
   const { can } = useRBAC();
   const canWrite = can(["admin"]);
 
   async function loadUsers() {
     setLoading(true);
     try {
-      const data = await fetchUsers().catch((e) => {
-        console.error("users error:", e);
+      const data = await fetchUsers().catch((e: any) => {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data pengguna. Periksa koneksi internet Anda." });
         return [];
       });
       setUsers(data);
@@ -657,6 +671,10 @@ export default function PenggunaPage() {
         role: data.role,
         aktif: data.aktif,
       });
+      setSuccessPopup({
+        isOpen: true,
+        message: `Data pengguna ${data.nama} berhasil diperbarui!`,
+      });
     } else {
       // ─── PENTING ─────────────────────────────────────────────────────────
       // createUserWithEmailAndPassword pada primary Auth instance otomatis
@@ -687,6 +705,10 @@ export default function PenggunaPage() {
           lastLogin: null,
           createdAt: serverTimestamp(),
         });
+        setSuccessPopup({
+          isOpen: true,
+          message: `Pengguna ${data.nama} berhasil ditambahkan!`,
+        });
       } finally {
         // Bersihkan: sign-out dari secondary app dan hapus instance-nya
         await signOut(secondaryAuth).catch(() => {});
@@ -702,15 +724,24 @@ export default function PenggunaPage() {
     const auth = getAuth();
     await sendPasswordResetEmail(auth, resetTarget.email);
     setResetSent(true);
+    setSuccessPopup({
+      isOpen: true,
+      message: `Link reset password berhasil dikirim ke ${resetTarget.email}!`,
+    });
   }
 
   // Hapus pengguna (Firestore doc saja — Auth hanya bisa dihapus via Admin SDK)
   async function handleDelete() {
     if (!deleteTarget) return;
+    const deletedName = deleteTarget.nama;
     setDeleting(true);
     try {
       await deleteUserDoc(deleteTarget.id);
       setDeleteTarget(null);
+      setSuccessPopup({
+        isOpen: true,
+        message: `Pengguna ${deletedName} berhasil dihapus!`,
+      });
       await loadUsers();
     } finally {
       setDeleting(false);
@@ -1130,6 +1161,17 @@ export default function PenggunaPage() {
           </div>
         </div>
       )}
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

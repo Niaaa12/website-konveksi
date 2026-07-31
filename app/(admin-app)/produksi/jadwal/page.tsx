@@ -27,6 +27,8 @@ import { WODetailModal } from "@/components/work-order/WODetailModal";
 import { WODeleteConfirm } from "@/components/work-order/WODeleteConfirm";
 import { cn } from "@/lib/utils";
 import { useRBAC } from "@/hooks/useRBAC";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 import {
   ChevronLeft,
   ChevronRight,
@@ -361,26 +363,38 @@ export default function JadwalProduksiPage() {
   const [deleteTarget, setDeleteTarget] = useState<WorkOrder | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
   const { can } = useRBAC();
   const canWrite = can(["admin", "kepalaTimProduksi"]);
 
   async function loadData() {
     setLoading(true);
     const [wos, prods, us, ops] = await Promise.all([
-      getWorkOrders().catch((e) => {
-        console.error("getWorkOrders:", e);
+      getWorkOrders().catch((e: any) => {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat Work Order. Periksa koneksi internet Anda." });
         return [];
       }),
-      getProducts().catch((e) => {
-        console.error("getProducts:", e);
+      getProducts().catch((e: any) => {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data produk." });
         return [];
       }),
-      getProductionUnits().catch((e) => {
-        console.error("getProductionUnits:", e);
+      getProductionUnits().catch((e: any) => {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat unit produksi." });
         return [];
       }),
-      getOperators().catch((e) => {
-        console.error("getOperators:", e);
+      getOperators().catch((e: any) => {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data operator." });
         return [];
       }),
     ]);
@@ -422,18 +436,44 @@ export default function JadwalProduksiPage() {
         : "",
       catatan: data.catatan,
     };
-    if (id) await updateWorkOrder(id, payload);
-    else await createWorkOrder(payload);
+    if (id) {
+      try {
+        await updateWorkOrder(id, payload);
+        setSuccessPopup({
+          isOpen: true,
+          message: `Work Order ${data.nomor} berhasil diperbarui!`,
+        });
+      } catch (e: any) {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memperbarui Work Order. Coba lagi." });
+      }
+    } else {
+      try {
+        await createWorkOrder(payload);
+        setSuccessPopup({
+          isOpen: true,
+          message: `Work Order ${data.nomor} berhasil dibuat!`,
+        });
+      } catch (e: any) {
+        setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal membuat Work Order. Coba lagi." });
+      }
+    }
     await loadData();
   }
 
   async function handleDelete() {
     if (!deleteTarget?.id) return;
+    const nomorWO = deleteTarget.nomor;
     setDeleting(true);
     try {
       await deleteWorkOrder(deleteTarget.id);
       setDeleteTarget(null);
+      setSuccessPopup({
+        isOpen: true,
+        message: `Work Order ${nomorWO} berhasil dihapus!`,
+      });
       await loadData();
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal menghapus Work Order. Coba lagi." });
     } finally {
       setDeleting(false);
     }
@@ -655,6 +695,17 @@ export default function JadwalProduksiPage() {
           onConfirm={handleDelete}
         />
       )}
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

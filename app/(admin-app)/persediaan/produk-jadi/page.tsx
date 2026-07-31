@@ -27,6 +27,8 @@ import Link from "next/link";
 import { getAuth } from "firebase/auth";
 import { cn } from "@/lib/utils";
 import { useRBAC } from "@/hooks/useRBAC";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 
 interface FlatVariant {
   productId: string;
@@ -47,6 +49,18 @@ export default function MasterProdukJadiPage() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterWarehouse, setFilterWarehouse] = useState<string>("all");
+
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
 
   // Transfer Modal State
   const [transferTarget, setTransferTarget] = useState<FlatVariant | null>(null);
@@ -95,8 +109,8 @@ export default function MasterProdukJadiPage() {
       });
       const resolved = await Promise.all(variantPromises);
       setFlatVariants(resolved.flat());
-    } catch (e) {
-      console.error("Gagal memuat produk jadi:", e);
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data produk jadi. Periksa koneksi internet Anda." });
     } finally {
       setLoading(false);
     }
@@ -192,12 +206,17 @@ export default function MasterProdukJadiPage() {
       }
 
       // 4. Kode asli Anda untuk mereset form dan memuat ulang data
+      setSuccessPopup({
+        isOpen: true,
+        message: `Transfer ${transferJumlah} pcs ${transferTarget.productName} (${transferTarget.warna}) ke Gudang Packing berhasil!`,
+      });
+
       setTransferTarget(null);
       setTransferJumlah(0);
       setTransferCatatan("");
       await loadData();
     } catch (err: any) {
-      setTransferError(err.message ?? "Gagal memproses transfer");
+      setErrorPopup({ isOpen: true, message: err?.message ?? "Gagal memproses transfer produk. Coba lagi." });
     } finally {
       setTransferring(false);
     }
@@ -558,6 +577,17 @@ export default function MasterProdukJadiPage() {
           </div>
         </div>
       )}
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

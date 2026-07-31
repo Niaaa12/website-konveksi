@@ -25,12 +25,26 @@ import {
 import { getAuth } from "firebase/auth";
 import { cn } from "@/lib/utils";
 import { useRBAC } from "@/hooks/useRBAC";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 
 export default function TransferGudangPage() {
   const [transfers, setTransfers] = useState<any[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // State modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
+
+  // State modal error
+  const [errorPopup, setErrorPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
 
   // Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,8 +81,8 @@ export default function TransferGudangPage() {
       ]);
       setTransfers(listTrf);
       setProducts(listProds);
-    } catch (e) {
-      console.error("Gagal memuat data transfer:", e);
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memuat data transfer. Periksa koneksi internet Anda." });
     } finally {
       setLoading(false);
     }
@@ -179,10 +193,15 @@ export default function TransferGudangPage() {
       setJumlah(0);
       setTanggal(new Date().toISOString().slice(0, 10));
       setCatatan("");
+
+      setSuccessPopup({
+        isOpen: true,
+        message: `Transfer stok sebanyak ${jumlah} pcs berhasil dicatat!`,
+      });
+
       await loadData();
     } catch (err: any) {
-      // Kode asli Anda untuk menangani error
-      setError(err.message ?? "Gagal memproses transfer.");
+      setErrorPopup({ isOpen: true, message: err?.message ?? "Gagal memproses transfer stok. Coba lagi." });
     } finally {
       setSaving(false);
     }
@@ -455,6 +474,17 @@ export default function TransferGudangPage() {
           </div>
         </div>
       )}
+
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }

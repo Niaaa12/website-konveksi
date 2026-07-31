@@ -35,6 +35,8 @@ import {
 import { MaterialHistoryModal } from "@/components/persediaan/MaterialHistoryModal";
 import { Pagination } from "@/components/ui/Pagination";
 import { useRBAC } from "@/hooks/useRBAC";
+import { SuccessModal } from "@/components/ui/SuccessModal";
+import { ErrorModal } from "@/components/ui/ErrorModal";
 
 const BRAND = "#003247";
 const BRAND_LIGHT = "#004766";
@@ -679,6 +681,7 @@ export default function BahanBakuPage() {
   const [modalKategoriOpen, setModalKategoriOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+  const [errorPopup, setErrorPopup] = useState({ isOpen: false, message: "" });
 
   useEffect(() => {
     setCurrentPage(1);
@@ -715,8 +718,8 @@ export default function BahanBakuPage() {
         };
       });
       setData(mapped);
-    } catch (err) {
-      console.error("Failed to load materials", err);
+    } catch (err: any) {
+      setErrorPopup({ isOpen: true, message: err?.message ?? "Gagal memuat data bahan baku. Periksa koneksi internet Anda." });
     } finally {
       setIsLoading(false);
     }
@@ -730,8 +733,8 @@ export default function BahanBakuPage() {
     try {
       const newId = await addMaterialCategory(nama);
       setKategoriList((prev) => [...prev, { id: newId, nama }]);
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      setErrorPopup({ isOpen: true, message: error?.message ?? "Gagal menambah kategori. Coba lagi." });
     }
   }
 
@@ -742,8 +745,8 @@ export default function BahanBakuPage() {
     try {
       await deleteMaterialCategory(id);
       setKategoriList((prev) => prev.filter((k) => k.id !== id));
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      setErrorPopup({ isOpen: true, message: error?.message ?? "Gagal menghapus kategori. Coba lagi." });
     }
   }
 
@@ -766,6 +769,12 @@ export default function BahanBakuPage() {
   }, [filtered, currentPage, pageSize]);
 
   const { stokKritis, stokHabis } = hitungStokKritis(data);
+
+  // State khusus untuk modal sukses
+  const [successPopup, setSuccessPopup] = useState({
+    isOpen: false,
+    message: "",
+  });
 
   async function handleAdd(form: BahanForm) {
     try {
@@ -801,8 +810,14 @@ export default function BahanBakuPage() {
           keterangan: form.keterangan,
         },
       ]);
-    } catch (e) {
-      console.error(e);
+
+      setSuccessPopup({
+        isOpen: true,
+        message: `Bahan Baku ${form.nama} berhasil ditambah!`,
+      });
+      setModalOpen(false);
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal menambah bahan baku. Coba lagi." });
     }
   }
 
@@ -834,9 +849,16 @@ export default function BahanBakuPage() {
         });
       }
 
+      setSuccessPopup({
+        isOpen: true,
+        message: `Data ${form.nama} berhasil diperbarui!`,
+      });
+
+      setModalEdit(null);
+
       await loadData();
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal memperbarui bahan baku. Coba lagi." });
     }
   }
 
@@ -845,9 +867,15 @@ export default function BahanBakuPage() {
     try {
       await deleteMaterial(modalDelete.id);
       setData((prev) => prev.filter((b) => b.id !== modalDelete.id));
+
+      setSuccessPopup({
+        isOpen: true,
+        message: `Bahan baku ${modalDelete.nama} berhasil dihapus!`,
+      });
+
       setModalDelete(null);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      setErrorPopup({ isOpen: true, message: e?.message ?? "Gagal menghapus bahan baku. Coba lagi." });
     }
   }
 
@@ -1170,6 +1198,16 @@ export default function BahanBakuPage() {
           onClose={() => setSelectedMaterialForHistory(null)}
         />
       )}
+      <SuccessModal
+        isOpen={successPopup.isOpen}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup({ isOpen: false, message: "" })}
+      />
+      <ErrorModal
+        isOpen={errorPopup.isOpen}
+        message={errorPopup.message}
+        onClose={() => setErrorPopup({ isOpen: false, message: "" })}
+      />
     </div>
   );
 }
