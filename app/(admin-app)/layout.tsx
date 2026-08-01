@@ -4,7 +4,8 @@ import AuthGuard from "@/components/auth/AuthGuard";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/dashboard/Topbar";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { onForegroundMessage } from "@/lib/fcm";
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/dashboard": { title: "Dashboard", subtitle: "Ringkasan Produksi Hari Ini" },
@@ -64,6 +65,38 @@ export default function Applayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const pageInfo = pageTitles[pathname] ?? { title: "Halaman", subtitle: "" };
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    const setupFCMListener = async () => {
+      // Memanggil fungsi dari fcm.ts
+      unsubscribe = await onForegroundMessage((payload) => {
+        console.log("Notifikasi Foreground Diterima:", payload);
+
+        const title = payload.notification?.title || "Pemberitahuan Sodai Group";
+        const body = payload.notification?.body || "Ada pembaruan penting pada sistem.";
+
+        // Memicu pop-up desktop/browser
+        if (Notification.permission === "granted") {
+          new Notification(title, {
+            body: body,
+            icon: "/favicon.ico",
+          });
+        }
+      });
+    };
+
+    setupFCMListener();
+
+    // Membersihkan listener saat user keluar dari aplikasi
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
+  // ----------------------------------------------------------
 
   return (
     // AuthGuard tanpa allowedRoles = semua user yang sudah login boleh masuk.

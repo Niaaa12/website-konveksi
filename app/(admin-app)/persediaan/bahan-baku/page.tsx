@@ -702,8 +702,8 @@ export default function BahanBakuPage() {
         const namaKategori = matchedCategory
           ? matchedCategory.nama
           : m.kategoriId.startsWith("cat-")
-          ? m.kategoriId.replace("cat-", "")
-          : m.kategoriId;
+            ? m.kategoriId.replace("cat-", "")
+            : m.kategoriId;
 
         return {
           id: m.id,
@@ -1160,14 +1160,14 @@ export default function BahanBakuPage() {
         initial={
           modalEdit
             ? {
-                nama: modalEdit.nama,
-                kategori: modalEdit.kategori,
-                satuan: modalEdit.satuan,
-                stok: String(modalEdit.stok),
-                stokMin: String(modalEdit.stokMin),
-                hargaSatuan: String(modalEdit.hargaSatuan),
-                keterangan: modalEdit.keterangan,
-              }
+              nama: modalEdit.nama,
+              kategori: modalEdit.kategori,
+              satuan: modalEdit.satuan,
+              stok: String(modalEdit.stok),
+              stokMin: String(modalEdit.stokMin),
+              hargaSatuan: String(modalEdit.hargaSatuan),
+              keterangan: modalEdit.keterangan,
+            }
             : undefined
         }
         mode="edit"

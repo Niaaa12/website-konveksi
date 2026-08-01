@@ -214,7 +214,7 @@ export async function createWorkOrder(
       if (matData.stokAktual < kebutuhanTotal) {
         throw new Error(
           `Stok bahan baku "${matData.nama}" tidak mencukupi! ` +
-            `Dibutuhkan: ${kebutuhanTotal} ${matData.satuan}, Tersedia: ${matData.stokAktual} ${matData.satuan}`
+          `Dibutuhkan: ${kebutuhanTotal} ${matData.satuan}, Tersedia: ${matData.stokAktual} ${matData.satuan}`
         );
       }
 
@@ -598,8 +598,8 @@ export interface Product {
   nama: string;
   deskripsi: string;
   kategoriId: string;
-  bahanUtama: string; // deskripsi singkat bahan, mis. "Voal Premium"
-  ukuran: string; // mis. "115x115 cm"
+  bahanUtama: string;
+  ukuran: string;
   hargaPokok: number;
   hargaJual: number;
   aktif: boolean;
@@ -1033,9 +1033,9 @@ export async function getProductionUnitsSummary(): Promise<
         rataEfisiensi:
           aktifList.length > 0
             ? Math.round(
-                aktifList.reduce((s, u) => s + u.efisiensi, 0) /
-                  aktifList.length
-              )
+              aktifList.reduce((s, u) => s + u.efisiensi, 0) /
+              aktifList.length
+            )
             : 0,
       };
     })
@@ -1530,11 +1530,11 @@ export interface AppUser {
   email: string;
   nama: string;
   role:
-    | "admin"
-    | "manajer"
-    | "kepalaTimProduksi"
-    | "kepalaGudang"
-    | "picproduksi";
+  | "admin"
+  | "manajer"
+  | "kepalaTimProduksi"
+  | "kepalaGudang"
+  | "picproduksi";
   jabatan: string;
   aktif: boolean;
 }
@@ -1593,13 +1593,13 @@ export async function getWarehouseTransfers(): Promise<WarehouseTransfer[]> {
   );
   return snap.docs.map(
     (d) =>
-      ({
-        id: d.id,
-        ...d.data(),
-        createdAt: d.data().createdAt?.toDate
-          ? d.data().createdAt.toDate()
-          : d.data().createdAt,
-      } as WarehouseTransfer)
+    ({
+      id: d.id,
+      ...d.data(),
+      createdAt: d.data().createdAt?.toDate
+        ? d.data().createdAt.toDate()
+        : d.data().createdAt,
+    } as WarehouseTransfer)
   );
 }
 
@@ -1653,13 +1653,13 @@ export async function getProductOutflows(): Promise<ProductOutflow[]> {
   );
   return snap.docs.map(
     (d) =>
-      ({
-        id: d.id,
-        ...d.data(),
-        createdAt: d.data().createdAt?.toDate
-          ? d.data().createdAt.toDate()
-          : d.data().createdAt,
-      } as ProductOutflow)
+    ({
+      id: d.id,
+      ...d.data(),
+      createdAt: d.data().createdAt?.toDate
+        ? d.data().createdAt.toDate()
+        : d.data().createdAt,
+    } as ProductOutflow)
   );
 }
 
@@ -1752,7 +1752,7 @@ export async function getAppNotifications(
   // Cara paling aman tanpa mengubah arsitektur query adalah ambil sendToAll == true DAN userIds array-contains userId
   // Karena keterbatasan indeks OR, kita bisa fetch saja berdasarkan waktu terbaru, 
   // lalu filter di client/helper, ATAU buat 2 query.
-  
+
   // Opsi mudah: fetch semua yang terbaru, filter manual karena jumlahnya biasanya tak banyak, 
   // atau lakukan 2 query dan merge.
   const qAll = query(
@@ -1761,7 +1761,7 @@ export async function getAppNotifications(
     orderBy("createdAt", "desc"),
     limit(limitCount)
   );
-  
+
   const qUser = query(
     notifsRef,
     where("userIds", "array-contains", userId),
@@ -1770,17 +1770,17 @@ export async function getAppNotifications(
   );
 
   const [snapAll, snapUser] = await Promise.all([getDocs(qAll), getDocs(qUser)]);
-  
+
   const results = new Map<string, AppNotification>();
-  
+
   snapAll.docs.forEach(doc => {
     results.set(doc.id, { id: doc.id, ...doc.data() } as AppNotification);
   });
-  
+
   snapUser.docs.forEach(doc => {
     results.set(doc.id, { id: doc.id, ...doc.data() } as AppNotification);
   });
-  
+
   // Konversi ke array dan urutkan ulang berdasarkan createdAt
   const merged = Array.from(results.values());
   merged.sort((a, b) => {
@@ -1788,6 +1788,6 @@ export async function getAppNotifications(
     const timeB = b.createdAt ? (b.createdAt as any).toMillis?.() || new Date(b.createdAt).getTime() : 0;
     return timeB - timeA;
   });
-  
+
   return merged.slice(0, limitCount);
 }
