@@ -141,8 +141,15 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-              <Factory className="h-4 w-4 text-white" />
+            <div
+              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0"
+              style={{ background: "#FFFFF0" }}
+            >
+              <img
+                src="/Hijab-Sodai.png"
+                alt="Logo Sodai Group"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
               <p className="text-sm font-semibold text-sidebar-accent-foreground">

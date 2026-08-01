@@ -37,27 +37,27 @@ const roles: {
   sub: string;
   Icon: React.ComponentType<any>;
 }[] = [
-  { key: "admin", label: "Admin", sub: "Full akses", Icon: ShieldCheck },
-  {
-    key: "kepalaTimProduksi",
-    label: "Produksi",
-    sub: "WO & mesin",
-    Icon: Scissors,
-  },
-  {
-    key: "picproduksi",
-    label: "PIC Produksi",
-    sub: "Update Progress",
-    Icon: UserCog,
-  },
-  { key: "kepalaGudang", label: "Gudang", sub: "Persediaan", Icon: Package },
-  {
-    key: "manajer",
-    label: "Manajer",
-    sub: "Laporan & KPI",
-    Icon: LayoutDashboard,
-  },
-];
+    { key: "admin", label: "Admin", sub: "Full akses", Icon: ShieldCheck },
+    {
+      key: "kepalaTimProduksi",
+      label: "Produksi",
+      sub: "WO & mesin",
+      Icon: Scissors,
+    },
+    {
+      key: "picproduksi",
+      label: "PIC Produksi",
+      sub: "Update Progress",
+      Icon: UserCog,
+    },
+    { key: "kepalaGudang", label: "Gudang", sub: "Persediaan", Icon: Package },
+    {
+      key: "manajer",
+      label: "Manajer",
+      sub: "Laporan & KPI",
+      Icon: LayoutDashboard,
+    },
+  ];
 
 // const roleRedirect: Record<UserRole, string> = {
 //   admin: "/dashboard",
@@ -270,10 +270,14 @@ export default function LoginPage() {
           {/* Brand */}
           <div className="relative z-10 flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xl flex-shrink-0"
-              style={{ background: BRAND }}
+              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0"
+              style={{ background: "#FFFFF0" }}
             >
-              🧕
+              <img
+                src="/Hijab-Sodai.png"
+                alt="Logo Sodai Group"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
               <p
@@ -333,10 +337,14 @@ export default function LoginPage() {
           {/* Mobile brand */}
           <div className="lg:hidden flex items-center gap-3 mb-6">
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0"
-              style={{ background: BRAND }}
+              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0"
+              style={{ background: "#FFFFF0" }}
             >
-              🧕
+              <img
+                src="/Hijab-Sodai.png"
+                alt="Logo Sodai Group"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
               <p className="text-sm font-medium">Sodai Group Konveksi</p>
