@@ -13,6 +13,7 @@ import {
   Loader2,
   X,
   Check,
+  BellRing,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -28,6 +29,9 @@ import {
   createWarehouseTransfer,
   ProductionUnit,
 } from "@/lib/firestore";
+import { messaging, db } from "@/lib/firebase";
+import { getToken } from "firebase/messaging";
+import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import {
   BarChart,
   Bar,
@@ -122,6 +126,52 @@ export default function DashboardPage() {
   const [transferError, setTransferError] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  // ─── TAMBAHAN: STATE UNTUK BANNER NOTIFIKASI ───
+  const [showBanner, setShowBanner] = useState(false);
+
+  useEffect(() => {
+    // Mengecek apakah browser mendukung notifikasi & izin belum diberikan
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission !== "granted"
+    ) {
+      setShowBanner(true);
+    }
+  }, []);
+
+  // FUNGSI UNTUK MEMINTA IZIN & MENYIMPAN TOKEN
+  async function handleAktifkanNotifikasi() {
+    try {
+      const permission = await Notification.requestPermission();
+
+      if (permission === "granted") {
+        setShowBanner(false);
+
+        if (!messaging) {
+          console.error("Firebase messaging tidak didukung di lingkungan ini.");
+          return;
+        }
+
+        const token = await getToken(messaging, {
+          vapidKey: process.env.NEXT_PUBLIC_VAPID_KEY,
+        });
+
+        // Menggunakan currentUser yang sudah ada di file ini
+        if (currentUser?.uid && token) {
+          const userRef = doc(db, "users", currentUser.uid);
+          await updateDoc(userRef, {
+            fcmTokens: arrayUnion(token),
+          });
+          alert("Notifikasi berhasil diaktifkan di HP ini!");
+        }
+      } else {
+        alert("Izin notifikasi ditolak.");
+      }
+    } catch (error) {
+      console.error("Error mengaktifkan notifikasi:", error);
+    }
+  }
   async function handleTransferSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!transferTarget) return;
@@ -217,9 +267,9 @@ export default function DashboardPage() {
         const avgEff =
           Array.isArray(units) && units.length > 0
             ? Math.round(
-                units.reduce((sum, u) => sum + Number(u?.efisiensi || 0), 0) /
-                  units.length
-              )
+              units.reduce((sum, u) => sum + Number(u?.efisiensi || 0), 0) /
+              units.length
+            )
             : 0;
         setEfisiensiProd(avgEff);
 
@@ -307,6 +357,38 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* ─── BANNER NOTIFIKASI IPHONE / HP ─── */}
+      {showBanner && (
+        <div className="flex items-center justify-between rounded-xl bg-blue-50 border border-blue-200 p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-blue-100 p-2">
+              <BellRing className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-blue-900">
+                Aktifkan Notifikasi Tugas
+              </p>
+              <p className="text-xs text-blue-700">
+                Agar Anda menerima pemberitahuan Work Order baru langsung di layar perangkat ini.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleAktifkanNotifikasi}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Aktifkan
+            </button>
+            <button
+              onClick={() => setShowBanner(false)}
+              className="p-2 text-blue-400 hover:text-blue-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
       {/* Alert Kritis Gudang Packing */}
       {/* {kritisPacking.length > 0 && (
         <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4">

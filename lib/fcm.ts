@@ -1,6 +1,6 @@
 import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
 import { app, db } from "@/lib/firebase"; 
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, arrayUnion } from "firebase/firestore";
 
 export async function requestNotificationPermission(userId: string) {
   try {
@@ -35,7 +35,7 @@ export async function requestNotificationPermission(userId: string) {
         await setDoc(
           userRef,
           {
-            fcmToken: token,
+            fcmTokens: arrayUnion(token),
             updatedAt: new Date().toISOString(), 
           },
           { merge: true }

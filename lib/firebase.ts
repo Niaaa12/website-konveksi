@@ -1,6 +1,8 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+// 1. Tambahkan import getMessaging
+import { getMessaging } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyATCVPxRhRVOhUKar1UiTmVrFQzEHgpq0E",
@@ -16,4 +18,8 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-export { app, auth, db };
+// 2. Inisialisasi messaging (hanya berjalan di client-side browser)
+const messaging = typeof window !== "undefined" ? getMessaging(app) : null;
+
+// 3. Tambahkan 'messaging' ke dalam export
+export { app, auth, db, messaging };

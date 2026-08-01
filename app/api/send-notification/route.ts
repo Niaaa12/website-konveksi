@@ -32,6 +32,21 @@ export async function POST(request: Request) {
 
     const tokens: string[] = [];
 
+    const addTokensFromData = (data: any) => {
+      if (!data) return;
+      const userTokens: string[] = [];
+      if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
+        userTokens.push(...data.fcmTokens);
+      } else if (data.fcmToken && typeof data.fcmToken === "string") {
+        userTokens.push(data.fcmToken);
+      }
+      userTokens.forEach((t) => {
+        if (t && !tokens.includes(t)) {
+          tokens.push(t);
+        }
+      });
+    };
+
     // 1. Jika userId diberikan, coba ambil token dari user tersebut
     if (userId) {
       const userIds = Array.isArray(userId) ? userId : [userId];
@@ -43,10 +58,7 @@ export async function POST(request: Request) {
           .doc(uid)
           .get();
         if (userDoc.exists) {
-          const token = userDoc.data()?.fcmToken;
-          if (token && !tokens.includes(token)) {
-            tokens.push(token);
-          }
+          addTokensFromData(userDoc.data());
         }
       }
     }
@@ -56,10 +68,7 @@ export async function POST(request: Request) {
     if (tokens.length === 0 || sendToAll) {
       const snapshot = await admin.firestore().collection("users").get();
       snapshot.forEach((doc) => {
-        const token = doc.data()?.fcmToken;
-        if (token && !tokens.includes(token)) {
-          tokens.push(token);
-        }
+        addTokensFromData(doc.data());
       });
     }
 
