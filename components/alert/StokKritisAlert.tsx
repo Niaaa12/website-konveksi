@@ -66,7 +66,7 @@ export function StokKritisAlertSidebar({
 
   return (
     <Link
-      href="/bahan-baku"
+      href="/persediaan/bahan-baku"
       className="group m-3 block rounded-lg border border-red-900/50 bg-red-950/50 p-3 transition-colors hover:bg-red-950/70"
     >
       <div className="flex items-center justify-between gap-2">
@@ -82,8 +82,8 @@ export function StokKritisAlertSidebar({
         {stokHabis > 0 && stokKritis > 0
           ? `${stokHabis} habis, ${stokKritis} hampir habis — perlu segera dipesan`
           : stokHabis > 0
-          ? `${stokHabis} bahan baku habis — perlu segera dipesan`
-          : `${stokKritis} bahan baku hampir habis — perlu segera dipesan`}
+            ? `${stokHabis} bahan baku habis — perlu segera dipesan`
+            : `${stokKritis} bahan baku hampir habis — perlu segera dipesan`}
       </p>
     </Link>
   );
