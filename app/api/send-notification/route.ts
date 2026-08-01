@@ -96,6 +96,17 @@ export async function POST(request: Request) {
       });
     }
 
+    // 4. Simpan riwayat notifikasi ke Firestore
+    const userIdsArray = userId ? (Array.isArray(userId) ? userId : [userId]) : [];
+    await admin.firestore().collection("notifications").add({
+      title: title || "Peringatan Sodai Group",
+      body: body || "Ada pembaruan penting pada sistem.",
+      link: link || "/dashboard",
+      userIds: userIdsArray,
+      sendToAll: !!sendToAll,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
     return NextResponse.json(
       { success: true, count: tokens.length, result: sendResult },
       { status: 200 }

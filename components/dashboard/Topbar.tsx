@@ -15,6 +15,7 @@ import {
   ArrowLeftRight,
   Package,
   Clock,
+  History,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -24,6 +25,7 @@ import {
   getVariantsByProductIds,
   getWarehouseTransfers,
   getWorkOrders,
+  getAppNotifications,
   type ProductVariant,
 } from "@/lib/firestore";
 import { requestNotificationPermission, onForegroundMessage } from "@/lib/fcm";
@@ -36,14 +38,15 @@ interface TopbarProps {
 
 export interface NotifItem {
   id: string;
-  type: "bahan_baku_kritis" | "produk_kritis" | "transfer_produk" | "wo_terlambat";
+  type: "bahan_baku_kritis" | "produk_kritis" | "transfer_produk" | "wo_terlambat" | "riwayat_fcm";
   title: string;
   desc: string;
   link: string;
   icon: React.ElementType;
   color: string;
-  category: "bahan_baku" | "produk" | "transfer" | "produksi";
+  category: "bahan_baku" | "produk" | "transfer" | "produksi" | "riwayat";
   badgeText: string;
+  createdAt?: Date;
 }
 
 const roleBadge: Record<string, string> = {
@@ -58,7 +61,7 @@ export function TopBar({ onMenuClick, title, subtitle }: TopbarProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState<NotifItem[]>([]);
-  const [activeTab, setActiveTab] = useState<"all" | "bahan_baku" | "produk" | "transfer" | "produksi">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "bahan_baku" | "produk" | "transfer" | "produksi" | "riwayat">("all");
   const { user } = useAuth();
   const router = useRouter();
 
@@ -207,6 +210,23 @@ export function TopBar({ onMenuClick, title, subtitle }: TopbarProps) {
             }
           });
         }
+
+        // 5. Cek Riwayat Notifikasi dari Firestore
+        const appNotifs = await getAppNotifications(user.uid, 20).catch(() => []);
+        appNotifs.forEach((an) => {
+          notifList.push({
+            id: `fcm-${an.id}`,
+            type: "riwayat_fcm",
+            title: an.title,
+            desc: an.body,
+            link: an.link || "/dashboard",
+            icon: History,
+            color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+            category: "riwayat",
+            badgeText: "Riwayat",
+            createdAt: an.createdAt,
+          });
+        });
 
         setNotifications(notifList);
       } catch (err) {
@@ -368,6 +388,19 @@ export function TopBar({ onMenuClick, title, subtitle }: TopbarProps) {
                     )}
                   >
                     WO ({notifications.filter((n) => n.category === "produksi").length})
+                  </button>
+                )}
+                {notifications.some((n) => n.category === "riwayat") && (
+                  <button
+                    onClick={() => setActiveTab("riwayat")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg font-medium transition-colors whitespace-nowrap",
+                      activeTab === "riwayat"
+                        ? "bg-slate-600 text-white"
+                        : "text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    Riwayat Sistem ({notifications.filter((n) => n.category === "riwayat").length})
                   </button>
                 )}
               </div>

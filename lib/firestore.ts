@@ -104,6 +104,16 @@ export interface StockTransaction {
   createdAt?: Date;
 }
 
+export interface AppNotification {
+  id?: string;
+  title: string;
+  body: string;
+  link?: string;
+  userIds: string[];
+  sendToAll: boolean;
+  createdAt?: Date;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // WORK ORDERS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1724,4 +1734,60 @@ export async function getKritisPackingVariants(): Promise<
     })
   );
   return allVariants.flat().filter((v) => v.stokGudangPacking < v.stokMin);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Ambil riwayat notifikasi untuk user tertentu (yang ditujukan untuknya atau sendToAll=true) */
+export async function getAppNotifications(
+  userId: string,
+  limitCount = 50
+): Promise<AppNotification[]> {
+  const notifsRef = collection(db, "notifications");
+  // Ambil yang khusus userId atau sendToAll = true
+  // Di Firestore, query dengan kondisi OR agak terbatas di versi lama, 
+  // namun jika menggunakan Firestore SDK v9+ bisa pakai Filter.or atau kita query terpisah.
+  // Cara paling aman tanpa mengubah arsitektur query adalah ambil sendToAll == true DAN userIds array-contains userId
+  // Karena keterbatasan indeks OR, kita bisa fetch saja berdasarkan waktu terbaru, 
+  // lalu filter di client/helper, ATAU buat 2 query.
+  
+  // Opsi mudah: fetch semua yang terbaru, filter manual karena jumlahnya biasanya tak banyak, 
+  // atau lakukan 2 query dan merge.
+  const qAll = query(
+    notifsRef,
+    where("sendToAll", "==", true),
+    orderBy("createdAt", "desc"),
+    limit(limitCount)
+  );
+  
+  const qUser = query(
+    notifsRef,
+    where("userIds", "array-contains", userId),
+    orderBy("createdAt", "desc"),
+    limit(limitCount)
+  );
+
+  const [snapAll, snapUser] = await Promise.all([getDocs(qAll), getDocs(qUser)]);
+  
+  const results = new Map<string, AppNotification>();
+  
+  snapAll.docs.forEach(doc => {
+    results.set(doc.id, { id: doc.id, ...doc.data() } as AppNotification);
+  });
+  
+  snapUser.docs.forEach(doc => {
+    results.set(doc.id, { id: doc.id, ...doc.data() } as AppNotification);
+  });
+  
+  // Konversi ke array dan urutkan ulang berdasarkan createdAt
+  const merged = Array.from(results.values());
+  merged.sort((a, b) => {
+    const timeA = a.createdAt ? (a.createdAt as any).toMillis?.() || new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? (b.createdAt as any).toMillis?.() || new Date(b.createdAt).getTime() : 0;
+    return timeB - timeA;
+  });
+  
+  return merged.slice(0, limitCount);
 }
