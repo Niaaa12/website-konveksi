@@ -145,16 +145,16 @@ function ProductFormModal({
   const [form, setForm] = useState<ProductForm>(
     initial
       ? {
-          kode: initial.kode,
-          nama: initial.nama,
-          deskripsi: initial.deskripsi,
-          kategoriId: initial.kategoriId,
-          bahanUtama: initial.bahanUtama ?? "",
-          ukuran: initial.ukuran ?? "",
-          hargaPokok: initial.hargaPokok ?? 0,
-          hargaJual: initial.hargaJual ?? 0,
-          aktif: initial.aktif,
-        }
+        kode: initial.kode,
+        nama: initial.nama,
+        deskripsi: initial.deskripsi,
+        kategoriId: initial.kategoriId,
+        bahanUtama: initial.bahanUtama ?? "",
+        ukuran: initial.ukuran ?? "",
+        hargaPokok: initial.hargaPokok ?? 0,
+        hargaJual: initial.hargaJual ?? 0,
+        aktif: initial.aktif,
+      }
       : { ...EMPTY_PRODUCT }
   );
   const [saving, setSaving] = useState(false);
@@ -414,6 +414,8 @@ function VarianWarnaPanelInline({
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ProductVariant | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProductVariant | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<VariantForm>({ ...EMPTY_VARIANT });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -489,11 +491,18 @@ function VarianWarnaPanelInline({
     }
   }
 
-  async function handleDelete(v: ProductVariant) {
-    if (!v.id) return;
-    if (!confirm(`Hapus varian warna "${v.namaWarna}"?`)) return;
-    await deleteProductVariant(productId, v.id);
-    await load();
+  async function confirmDelete() {
+    if (!deleteTarget?.id) return;
+    setDeleting(true);
+    try {
+      await deleteProductVariant(productId, deleteTarget.id);
+      setDeleteTarget(null);
+      await load();
+    } catch (e: any) {
+      setError(e.message ?? "Gagal menghapus varian.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const stokKritis = variants.filter(
@@ -607,8 +616,8 @@ function VarianWarnaPanelInline({
                                   v.ukuran === "All Size"
                                     ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                                     : v.ukuran === "Anak-anak"
-                                    ? "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400"
-                                    : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                      ? "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400"
+                                      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                                 )}
                               >
                                 {v.ukuran ?? "—"}
@@ -623,11 +632,11 @@ function VarianWarnaPanelInline({
                                 ) === "habis"
                                   ? "text-red-600"
                                   : hitungVariantStokStatus(
-                                      v.stokJadi,
-                                      v.stokMin ?? 20
-                                    ) === "rendah"
-                                  ? "text-amber-600"
-                                  : "text-foreground"
+                                    v.stokJadi,
+                                    v.stokMin ?? 20
+                                  ) === "rendah"
+                                    ? "text-amber-600"
+                                    : "text-foreground"
                               )}
                             >
                               {v.stokJadi.toLocaleString("id-ID")}
@@ -651,7 +660,7 @@ function VarianWarnaPanelInline({
                                   <Pencil className="h-3 w-3" />
                                 </button>
                                 <button
-                                  onClick={() => handleDelete(v)}
+                                  onClick={() => setDeleteTarget(v)}
                                   title="Hapus"
                                   className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500 transition-colors"
                                 >
@@ -849,6 +858,55 @@ function VarianWarnaPanelInline({
           <Plus className="h-3.5 w-3.5" /> Tambah Varian Warna
         </button>
       )}
+
+      {/* Modal Hapus Varian */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            onClick={() => !deleting && setDeleteTarget(null)}
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl flex flex-col items-center text-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+              <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Hapus Varian Warna?</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Varian <strong className="text-foreground">{deleteTarget.namaWarna} ({deleteTarget.ukuran})</strong> akan dihapus permanen.
+              </p>
+            </div>
+            <div className="flex w-full gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 h-10 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="flex-1 h-10 rounded-xl bg-red-600 hover:bg-red-700 text-sm font-medium text-white flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Menghapus...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Hapus
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -896,6 +954,8 @@ function BomPanelInline({
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<BomItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BomItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<BomForm>({ ...EMPTY_BOM });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1002,19 +1062,18 @@ function BomPanelInline({
     }
   }
 
-  async function handleDelete(b: BomItem) {
-    if (!b.id) return;
-    const mat = matMap[b.materialId];
-    if (
-      !confirm(
-        `Hapus bahan "${mat?.nama ?? b.materialId}" dari BOM ukuran ${
-          b.ukuran
-        }?`
-      )
-    )
-      return;
-    await deleteBomItem(productId, b.id);
-    await load();
+  async function confirmDelete() {
+    if (!deleteTarget?.id) return;
+    setDeleting(true);
+    try {
+      await deleteBomItem(productId, deleteTarget.id);
+      setDeleteTarget(null);
+      await load();
+    } catch (e: any) {
+      setError(e.message ?? "Gagal menghapus bahan dari BOM.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const bahanBelumDipilih = materials.filter(
@@ -1122,7 +1181,7 @@ function BomPanelInline({
                               <Pencil className="h-3 w-3" />
                             </button>
                             <button
-                              onClick={() => handleDelete(b)}
+                              onClick={() => setDeleteTarget(b)}
                               className="rounded-lg border border-red-200 bg-background p-1.5 text-red-500 hover:bg-red-50"
                               title="Hapus"
                             >
@@ -1303,8 +1362,8 @@ function ProductDetailModal({
   const margin =
     product.hargaJual && product.hargaPokok
       ? Math.round(
-          ((product.hargaJual - product.hargaPokok) / product.hargaJual) * 100
-        )
+        ((product.hargaJual - product.hargaPokok) / product.hargaJual) * 100
+      )
       : null;
 
   // Stable callback agar VarianWarnaPanelInline tidak re-fetch terus (infinite loop)
@@ -1770,8 +1829,8 @@ function KategoriModal({
                 {saving
                   ? "Menyimpan..."
                   : editTarget
-                  ? "Simpan Perubahan"
-                  : "Tambah Kategori"}
+                    ? "Simpan Perubahan"
+                    : "Tambah Kategori"}
               </button>
             </div>
           </div>
@@ -2000,6 +2059,12 @@ export default function KatalogProdukPage() {
         message: `Produk ${deletedNama} berhasil dihapus!`,
       });
       await loadData();
+    } catch (err: any) {
+      setDeleteTarget(null);
+      setErrorPopup({
+        isOpen: true,
+        message: err?.message ?? "Gagal menghapus produk. Silakan coba lagi.",
+      });
     } finally {
       setDeleting(false);
     }
@@ -2067,12 +2132,10 @@ export default function KatalogProdukPage() {
             </p>
             <p className="text-xs text-amber-600/80 dark:text-amber-400/70 mt-0.5">
               {varianKritis.filter((v) => v.stokJadi <= 0).length > 0 &&
-                `${
-                  varianKritis.filter((v) => v.stokJadi <= 0).length
+                `${varianKritis.filter((v) => v.stokJadi <= 0).length
                 } varian habis. `}
               {varianKritis.filter((v) => v.stokJadi > 0).length > 0 &&
-                `${
-                  varianKritis.filter((v) => v.stokJadi > 0).length
+                `${varianKritis.filter((v) => v.stokJadi > 0).length
                 } varian hampir habis. `}
               Buka detail produk → tab Varian Warna untuk membuat Work Order.
             </p>
@@ -2273,41 +2336,49 @@ export default function KatalogProdukPage() {
         />
       )}
 
-      {/* Modal Hapus */}
+      {/* Modal Hapus Produk */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                <Trash2 className="h-5 w-5 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold">Hapus Produk?</h3>
-                <p className="text-xs text-muted-foreground">
-                  Tindakan ini tidak bisa dibatalkan
-                </p>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            onClick={() => !deleting && setDeleteTarget(null)}
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl flex flex-col items-center text-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+              <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
             </div>
-            <p className="text-sm text-muted-foreground mb-5">
-              Produk{" "}
-              <strong className="text-foreground">{deleteTarget.nama}</strong> (
-              {deleteTarget.kode}) beserta seluruh varian dan BOM-nya akan
-              dihapus permanen.
-            </p>
-            <div className="flex justify-end gap-2">
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Hapus Produk?</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Produk <strong className="text-foreground">{deleteTarget.nama}</strong> ({deleteTarget.kode}) beserta seluruh varian dan BOM-nya akan dihapus permanen.
+              </p>
+            </div>
+            <div className="flex w-full gap-3">
               <button
+                type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted/50"
+                disabled={deleting}
+                className="flex-1 h-10 rounded-xl border border-border text-sm font-medium text-muted-foreground hover:bg-accent transition-colors disabled:opacity-60"
               >
                 Batal
               </button>
               <button
+                type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                className="flex-1 h-10 rounded-xl bg-red-600 hover:bg-red-700 text-sm font-medium text-white flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
               >
-                {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}{" "}
-                Hapus
+                {deleting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Menghapus...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Hapus
+                  </>
+                )}
               </button>
             </div>
           </div>

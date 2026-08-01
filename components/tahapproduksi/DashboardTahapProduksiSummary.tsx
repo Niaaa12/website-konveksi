@@ -27,13 +27,6 @@ const TAHAP_ICON: Record<string, React.ElementType> = {
   packing: Package,
 };
 
-/**
- * Ringkasan alur tahap produksi untuk dashboard.
- * Menampilkan 5 tahap dalam bentuk alur horizontal:
- *   Potong → Jahit → Obras → Finishing → Packing
- * Setiap tahap menunjukkan berapa WO sedang di sana dan ada berapa masalah.
- * Manajer bisa langsung lihat bottleneck tanpa buka halaman lain.
- */
 export function DashboardTahapProduksiSummary() {
   const [data, setData] = useState<TahapSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,8 +97,8 @@ export function DashboardTahapProduksiSummary() {
                     adaMasalah
                       ? "bg-red-500"
                       : isBottleneck
-                      ? "bg-amber-500"
-                      : "bg-[#003247]"
+                        ? "bg-amber-500"
+                        : "bg-[#003247]"
                   )}
                 >
                   {idx + 1}
