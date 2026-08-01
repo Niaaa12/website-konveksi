@@ -223,7 +223,23 @@ export function WOFormModal({
     setSaving(true);
     setError("");
     try {
+      // Menyimpan data melalui fungsi onSave dari parent
       await onSave(form, initial?.id);
+
+      // >>> TAMBAHAN KODE NOTIFIKASI <<<
+      // Jika tidak ada 'initial', berarti ini pembuatan WO baru, bukan Edit
+      if (!initial && form.operatorId) {
+        // Kirim notifikasi tanpa menggunakan await agar tidak memperlambat penutupan modal
+        fetch("/api/send-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: form.operatorId, // Target notifikasi langsung ke PIC yang dipilih
+            title: "📋 Tugas Work Order Baru!",
+            body: `Anda ditugaskan mengerjakan WO ${form.nomor}. Target: ${form.tanggalTarget}.`,
+          }),
+        }).catch((err) => console.error("Gagal kirim notifikasi:", err));
+      }
       onClose();
     } catch (err: any) {
       setError(err.message ?? "Terjadi kesalahan.");
@@ -391,8 +407,8 @@ export function WOFormModal({
                                 isSelected
                                   ? "border-[#003247] bg-[#003247]/5 ring-1 ring-[#003247]/30"
                                   : adaKritis
-                                  ? "border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 hover:border-amber-300"
-                                  : "border-border hover:bg-muted/40"
+                                    ? "border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 hover:border-amber-300"
+                                    : "border-border hover:bg-muted/40"
                               )}
                             >
                               <span
@@ -475,10 +491,10 @@ export function WOFormModal({
                                   isSelected
                                     ? "border-[#003247] bg-[#003247] text-white ring-1 ring-[#003247]/30"
                                     : stokStatus === "habis"
-                                    ? "border-red-200 bg-red-50/50 dark:bg-red-950/10 hover:border-red-300"
-                                    : stokStatus === "rendah"
-                                    ? "border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 hover:border-amber-300"
-                                    : "border-border hover:bg-muted/40"
+                                      ? "border-red-200 bg-red-50/50 dark:bg-red-950/10 hover:border-red-300"
+                                      : stokStatus === "rendah"
+                                        ? "border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 hover:border-amber-300"
+                                        : "border-border hover:bg-muted/40"
                                 )}
                               >
                                 <span
@@ -495,17 +511,17 @@ export function WOFormModal({
                                     isSelected
                                       ? "text-white/80"
                                       : stokStatus === "habis"
-                                      ? "text-red-600"
-                                      : stokStatus === "rendah"
-                                      ? "text-amber-600"
-                                      : "text-muted-foreground"
+                                        ? "text-red-600"
+                                        : stokStatus === "rendah"
+                                          ? "text-amber-600"
+                                          : "text-muted-foreground"
                                   )}
                                 >
                                   {stokStatus === "habis"
                                     ? "Habis"
                                     : stokStatus === "rendah"
-                                    ? `${v.stokJadi} ⚠`
-                                    : `${v.stokJadi}`}
+                                      ? `${v.stokJadi} ⚠`
+                                      : `${v.stokJadi}`}
                                 </span>
                               </button>
                             );
@@ -529,8 +545,8 @@ export function WOFormModal({
                                   {Math.max(
                                     0,
                                     (varianFinal.stokMin ?? 20) -
-                                      varianFinal.stokJadi +
-                                      50
+                                    varianFinal.stokJadi +
+                                    50
                                   )}{" "}
                                   pcs
                                 </strong>{" "}

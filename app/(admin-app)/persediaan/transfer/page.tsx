@@ -157,7 +157,7 @@ export default function TransferGudangPage() {
         dibuatOleh: currentUserNama,
       });
 
-      await fetch("/api/send-notification", {
+      fetch("/api/send-notification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -166,7 +166,7 @@ export default function TransferGudangPage() {
           body: `${jumlah} pcs ${selectedProduct?.nama} (${selectedVariant?.namaWarna}) telah ditransfer oleh ${currentUserNama}.`,
           link: "/persediaan/transfer",
         }),
-      });
+      }).catch(err => console.error("Gagal kirim notif transfer:", err));
 
       if (selectedVariant) {
         const sisaStokBesar = selectedVariant.stokJadi - jumlah;

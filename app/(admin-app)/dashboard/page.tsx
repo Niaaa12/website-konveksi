@@ -199,6 +199,19 @@ export default function DashboardPage() {
           currentUser?.displayName ?? currentUser?.email ?? "Kepala Gudang",
       });
       setTransferTarget(null);
+
+      // Kirim notifikasi transfer barang
+      fetch("/api/send-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sendToAll: true,
+          title: "📦 Transfer Produk",
+          body: `${transferJumlah} pcs ${transferTarget.productName} dipindahkan ke Gudang Packing.`,
+          link: "/persediaan/transfer",
+        }),
+      }).catch(err => console.error("Gagal notif transfer:", err));
+
       // Reload
       window.location.reload();
     } catch (err: any) {
@@ -255,6 +268,61 @@ export default function DashboardPage() {
         setStats(dashStats);
         setUnitsList(units);
         // setKritisPacking(kpVars);
+
+        // -- NOTIFIKASI OTOMATIS BERDASARKAN HASIL QUERY --
+        // Skenario 3: Bahan Baku Kritis
+        if (!sessionStorage.getItem("notified_bahan_kritis")) {
+          const bahanKritis = materials.filter((m) => m.stokAktual <= m.stokMin);
+          if (bahanKritis.length > 0) {
+            fetch("/api/send-notification", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sendToAll: true,
+                title: "⚠️ Peringatan Bahan Baku",
+                body: `Terdapat ${bahanKritis.length} bahan baku dengan stok kritis.`,
+                link: "/persediaan/bahan-baku",
+              }),
+            }).catch(console.error);
+            sessionStorage.setItem("notified_bahan_kritis", "true");
+          }
+        }
+
+        // Skenario 4: Produk Kritis (Gudang Packing)
+        if (!sessionStorage.getItem("notified_produk_kritis") && kpVars.length > 0) {
+          fetch("/api/send-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sendToAll: true,
+              title: "⚠️ Produk Jadi Menipis",
+              body: `Terdapat ${kpVars.length} varian produk yang kritis di Gudang Packing.`,
+              link: "/persediaan/produk-jadi",
+            }),
+          }).catch(console.error);
+          sessionStorage.setItem("notified_produk_kritis", "true");
+        }
+
+        // Skenario 5: WO Terlambat
+        if (!sessionStorage.getItem("notified_wo_terlambat")) {
+          const hariIni = new Date().toISOString().slice(0, 10);
+          const woTerlambat = wos.filter(
+            (w) => (w.status === "berjalan" || w.status === "tertunda") && w.tanggalTarget < hariIni
+          );
+          if (woTerlambat.length > 0) {
+            fetch("/api/send-notification", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                sendToAll: true,
+                title: "⏰ Peringatan Work Order",
+                body: `Terdapat ${woTerlambat.length} Work Order yang melewati batas target!`,
+                link: "/produksi/work-order",
+              }),
+            }).catch(console.error);
+            sessionStorage.setItem("notified_wo_terlambat", "true");
+          }
+        }
 
         // Sum inventory value
         const totalVal = materials.reduce(
