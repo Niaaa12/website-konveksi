@@ -5,7 +5,7 @@ import {
   onAuthStateChanged,
   User,
   AuthError,
-  GoogleAuthProvider, 
+  GoogleAuthProvider,
   signInWithPopup,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -19,16 +19,16 @@ export type UserRole = "admin" | "kepalaTimProduksi" | "kepalaGudang" | "manajer
 // Dipakai oleh middleware.ts dan AuthGuard
 export const HALAMAN_AKSES: Record<string, UserRole[]> = {
   "/dashboard": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang", "picproduksi"],
-  "/produksi/work-order": ["admin", "manajer", "kepalaTimProduksi"],
-  "/produksi/jadwal": ["admin", "manajer", "kepalaTimProduksi"],
-  "/produksi/unitproduksi": ["admin", "manajer", "kepalaTimProduksi"],
-  "/persediaan/bahan-baku": ["admin", "manajer", "kepalaGudang"],
-  "/persediaan/produk-jadi": ["admin", "manajer", "kepalaGudang"],
-  "/persediaan/transfer": ["admin", "manajer", "kepalaGudang"],
-  "/persediaan/pengeluaran": ["admin", "manajer", "kepalaGudang"],
-  "/persediaan/penerimaan": ["admin", "manajer", "kepalaGudang"],
+  "/produksi/work-order": ["admin", "kepalaTimProduksi"],
+  "/produksi/jadwal": ["admin", "kepalaTimProduksi"],
+  "/produksi/unitproduksi": ["admin", "kepalaTimProduksi"],
+  "/persediaan/bahan-baku": ["admin", "kepalaGudang"],
+  "/persediaan/produk-jadi": ["admin", "kepalaGudang"],
+  "/persediaan/transfer": ["admin", "kepalaGudang"],
+  "/persediaan/pengeluaran": ["admin", "kepalaGudang"],
+  "/persediaan/penerimaan": ["admin", "kepalaGudang"],
   "/progress": ["kepalaTimProduksi", "picproduksi"],
-  "/katalogproduk": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
+  "/katalogproduk": ["admin", "kepalaTimProduksi", "kepalaGudang"],
   "/laporan": ["admin", "manajer", "kepalaTimProduksi", "kepalaGudang"],
   "/pengguna": ["admin"],
   "/pengaturan": ["admin", "manajer", "kepalaTimProduksi",
@@ -134,7 +134,7 @@ export async function loginWithGoogle(): Promise<AuthResult> {
     // Jika ini adalah pertama kalinya login pakai Google (belum ada profil)
     if (!profile) {
       // Kita buatkan profil otomatis. (Anda bisa ubah default role-nya di sini)
-      const defaultRole: UserRole = "picproduksi"; 
+      const defaultRole: UserRole = "picproduksi";
       await createUserProfile(
         user.uid,
         user.email ?? "",

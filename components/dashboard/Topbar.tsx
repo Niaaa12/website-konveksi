@@ -115,10 +115,10 @@ export function TopBar({ onMenuClick, title, subtitle }: TopbarProps) {
         const todayStr = new Date().toISOString().split("T")[0];
 
         // Definisikan hak akses kategori notifikasi per role pengguna
-        const isAllowedBahanBaku = ["admin", "manajer", "kepalaGudang", "kepalaTimProduksi"].includes(role);
-        const isAllowedProduk = ["admin", "manajer", "kepalaGudang", "kepalaTimProduksi", "picproduksi"].includes(role);
-        const isAllowedTransfer = ["admin", "manajer", "kepalaGudang"].includes(role);
-        const isAllowedProduksi = ["admin", "manajer", "kepalaTimProduksi", "picproduksi"].includes(role);
+        const isAllowedBahanBaku = ["admin", "kepalaGudang", "kepalaTimProduksi"].includes(role);
+        const isAllowedProduk = ["admin", "kepalaGudang", "kepalaTimProduksi", "picproduksi"].includes(role);
+        const isAllowedTransfer = ["admin", "kepalaGudang"].includes(role);
+        const isAllowedProduksi = ["admin", "kepalaTimProduksi", "picproduksi"].includes(role);
 
         // 1. Cek Stok Kritis Bahan Baku (stokAktual <= stokMin)
         if (isAllowedBahanBaku) {
