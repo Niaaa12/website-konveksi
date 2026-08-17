@@ -272,15 +272,16 @@ export default function LoginPage() {
           {/* Brand */}
           <div className="relative z-10 flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0 overflow-hidden"
+              className="relative w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
               style={{ background: "#FFFFF0" }}
             >
               <Image
                 src="/Hijab-Sodai.png"
                 alt="Logo Sodai Group"
-                width={40}
-                height={40}
-                className="w-full h-full object-cover"
+                width={48}
+                height={48}
+                className="w-full h-full"
+                style={{ objectFit: "cover" }}
                 priority
               />
             </div>
@@ -342,15 +343,16 @@ export default function LoginPage() {
           {/* Mobile brand */}
           <div className="lg:hidden flex items-center gap-3 mb-6">
             <div
-              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0 overflow-hidden"
+              className="relative w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
               style={{ background: "#FFFFF0" }}
             >
               <Image
                 src="/Hijab-Sodai.png"
                 alt="Logo Sodai Group"
-                width={40}
-                height={40}
-                className="w-full h-full object-cover"
+                width={48}
+                height={48}
+                className="w-full h-full"
+                style={{ objectFit: "cover" }}
                 priority
               />
             </div>
