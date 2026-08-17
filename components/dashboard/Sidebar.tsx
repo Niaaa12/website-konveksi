@@ -150,11 +150,11 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
           <div className="flex items-center gap-2.5">
             <div
-              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0"
+              className="relative w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
               style={{ background: "#FFFFF0" }}
             >
               <img
-                src="/logo-Sodai.png"
+                src="/logo-sodai.png"
                 alt="Logo Sodai Group"
                 className="w-full h-full object-cover"
               />
