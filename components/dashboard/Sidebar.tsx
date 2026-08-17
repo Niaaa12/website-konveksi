@@ -154,7 +154,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               style={{ background: "#FFFFF0" }}
             >
               <img
-                src="/Hijab-Sodai.png"
+                src="/logo-Sodai.png"
                 alt="Logo Sodai Group"
                 className="w-full h-full object-cover"
               />
