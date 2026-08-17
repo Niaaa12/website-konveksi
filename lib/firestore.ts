@@ -583,7 +583,15 @@ export async function addMaterialCategory(nama: string): Promise<string> {
   return ref.id;
 }
 
-// 3. Hapus kategori
+// 3. Edit kategori
+export async function updateMaterialCategory(id: string, nama: string): Promise<void> {
+  await updateDoc(doc(db, "materialCategories", id), {
+    nama,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// 4. Hapus kategori
 export async function deleteMaterialCategory(id: string): Promise<void> {
   await deleteDoc(doc(db, "materialCategories", id));
 }

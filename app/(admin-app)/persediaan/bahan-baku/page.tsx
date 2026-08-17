@@ -21,6 +21,10 @@ import {
   AlertCircle,
   Clock,
   Tags,
+  Check,
+  Pencil,
+  Tag,
+  AlertTriangle,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import {
@@ -30,6 +34,7 @@ import {
   deleteMaterial,
   getMaterialCategories,
   addMaterialCategory,
+  updateMaterialCategory,
   deleteMaterialCategory,
 } from "@/lib/firestore";
 import { MaterialHistoryModal } from "@/components/persediaan/MaterialHistoryModal";
@@ -570,95 +575,260 @@ function KelolaKategoriModal({
   open,
   onClose,
   kategoriList,
-  onAdd,
-  onDelete,
+  onRefresh,
+  onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
-  kategoriList: { id: string; nama: string }[];
-  onAdd: (nama: string) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  kategoriList: { id: string; nama: string; deskripsi?: string }[];
+  onRefresh: () => Promise<void>;
+  onSuccess?: (msg: string) => void;
 }) {
-  const [newKategori, setNewKategori] = useState("");
-  const [loading, setLoading] = useState(false);
+  const emptyForm = { nama: "", deskripsi: "" };
+  const [form, setForm] = useState(emptyForm);
+  const [editTarget, setEditTarget] = useState<{ id: string; nama: string; deskripsi?: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; nama: string; deskripsi?: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
 
   if (!open) return null;
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newKategori.trim()) return;
-    setLoading(true);
-    await onAdd(newKategori);
-    setNewKategori("");
-    setLoading(false);
+  function bukaEdit(cat: { id: string; nama: string; deskripsi?: string }) {
+    setEditTarget(cat);
+    setForm({ nama: cat.nama, deskripsi: cat.deskripsi ?? "" });
+    setError("");
+  }
+
+  function resetForm() {
+    setEditTarget(null);
+    setForm(emptyForm);
+    setError("");
+  }
+
+  async function handleSave() {
+    if (!form.nama.trim()) {
+      setError("Nama kategori wajib diisi.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      if (editTarget?.id) {
+        await updateMaterialCategory(editTarget.id, form.nama.trim());
+        onSuccess?.(`Kategori ${form.nama} berhasil diperbarui!`);
+      } else {
+        await addMaterialCategory(form.nama.trim());
+        onSuccess?.(`Kategori ${form.nama} berhasil ditambahkan!`);
+      }
+      await onRefresh();
+      resetForm();
+    } catch (e: any) {
+      setError(e?.message ?? "Gagal menyimpan. Coba lagi.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget?.id) return;
+    const deletedNama = deleteTarget.nama;
+    setDeleting(true);
+    try {
+      await deleteMaterialCategory(deleteTarget.id);
+      await onRefresh();
+      setDeleteTarget(null);
+      onSuccess?.(`Kategori ${deletedNama} berhasil dihapus!`);
+    } catch (e: any) {
+      setError(
+        "Gagal menghapus. Pastikan tidak ada bahan baku dengan kategori ini."
+      );
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <Tags className="h-4 w-4" /> Kelola Kategori
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-16 pb-8 overflow-y-auto">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#003247]/10">
+              <Tag className="h-4 w-4 text-[#003247]" />
+            </span>
+            <h2 className="text-sm font-semibold">Kelola Kategori</h2>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 hover:bg-muted/50"
+            className="rounded-lg p-1.5 hover:bg-muted/60 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1">
-          {/* Form Tambah */}
-          <form onSubmit={handleAdd} className="flex gap-2 mb-6">
-            <input
-              type="text"
-              placeholder="Nama kategori baru..."
-              value={newKategori}
-              onChange={(e) => setNewKategori(e.target.value)}
-              disabled={loading}
-              className="flex-1 h-9 px-3 rounded-lg border border-border bg-background text-sm focus:border-[#003247] focus:ring-1 focus:ring-[#003247]/30 outline-none"
-            />
-            <button
-              type="submit"
-              disabled={loading || !newKategori.trim()}
-              className="h-9 px-4 rounded-lg bg-[#003247] text-white text-sm font-medium hover:bg-[#004a6e] disabled:opacity-50"
-            >
-              Tambah
-            </button>
-          </form>
+        <div className="p-6 space-y-6">
+          {/* Form Tambah / Edit */}
+          <div className="rounded-xl border border-border bg-muted/20 p-4 space-y-3">
+            <p className="text-xs font-semibold text-foreground">
+              {editTarget ? `Edit: ${editTarget.nama}` : "Tambah Kategori Baru"}
+            </p>
 
-          {/* List Kategori */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Nama Kategori <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.nama}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, nama: e.target.value }))
+                }
+                placeholder="cth. Kain Katun, Benang Jahit..."
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#003247]/30"
+              />
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-2 justify-end pt-1">
+              {editTarget && (
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted/60 transition-colors"
+                >
+                  Batal
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 rounded-xl bg-[#003247] px-4 py-2 text-xs font-medium text-white hover:bg-[#004a6e] disabled:opacity-60 transition-colors"
+              >
+                {saving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : editTarget ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
+                {saving
+                  ? "Menyimpan..."
+                  : editTarget
+                    ? "Simpan Perubahan"
+                    : "Tambah Kategori"}
+              </button>
+            </div>
+          </div>
+
+          {/* Daftar Kategori */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground mb-3">
-              Daftar Kategori Saat Ini
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Kategori Tersedia ({kategoriList.length})
             </p>
             {kategoriList.length === 0 ? (
-              <p className="text-xs text-center py-4 text-muted-foreground border border-dashed rounded-lg">
-                Belum ada kategori.
-              </p>
+              <div className="rounded-xl border border-dashed border-border py-8 text-center text-xs text-muted-foreground">
+                Belum ada kategori. Tambahkan di atas.
+              </div>
             ) : (
-              kategoriList.map((k) => (
-                <div
-                  key={k.id}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-background"
-                >
-                  <span className="text-sm font-medium">{k.nama}</span>
-                  <button
-                    onClick={() => {
-                      if (window.confirm(`Hapus kategori ${k.nama}?`))
-                        onDelete(k.id);
-                    }}
-                    className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+              <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+                {kategoriList.map((cat) => (
+                  <div
+                    key={cat.id}
+                    className={cn(
+                      "flex items-center justify-between px-4 py-3 transition-colors",
+                      editTarget?.id === cat.id
+                        ? "bg-[#003247]/5"
+                        : "hover:bg-muted/30"
+                    )}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{cat.nama}</p>
+                    </div>
+                    <div className="flex items-center gap-1 ml-3 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => bukaEdit(cat)}
+                        className="rounded-lg border border-border bg-background p-1.5 hover:bg-muted/60 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteTarget(cat)}
+                        className="rounded-lg border border-red-200 bg-background p-1.5 hover:bg-red-50 text-red-500 transition-colors"
+                        title="Hapus"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Konfirmasi Hapus */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-100">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Hapus Kategori?</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  &quot;{deleteTarget.nama}&quot; akan dihapus permanen.
+                </p>
+              </div>
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setError("");
+                }}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-medium hover:bg-muted/50"
+                disabled={deleting}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                {deleting ? "Menghapus..." : "Ya, Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -682,6 +852,7 @@ export default function BahanBakuPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [errorPopup, setErrorPopup] = useState({ isOpen: false, message: "" });
+  const [successPopup, setSuccessPopup] = useState({ isOpen: false, message: "" });
 
   useEffect(() => {
     setCurrentPage(1);
@@ -729,26 +900,8 @@ export default function BahanBakuPage() {
     loadData();
   }, []);
 
-  async function handleAddKategori(nama: string) {
-    try {
-      const newId = await addMaterialCategory(nama);
-      setKategoriList((prev) => [...prev, { id: newId, nama }]);
-    } catch (error: any) {
-      setErrorPopup({ isOpen: true, message: error?.message ?? "Gagal menambah kategori. Coba lagi." });
-    }
-  }
-
   const { can } = useRBAC();
   const canWrite = can(["admin", "kepalaGudang"]);
-
-  async function handleDeleteKategori(id: string) {
-    try {
-      await deleteMaterialCategory(id);
-      setKategoriList((prev) => prev.filter((k) => k.id !== id));
-    } catch (error: any) {
-      setErrorPopup({ isOpen: true, message: error?.message ?? "Gagal menghapus kategori. Coba lagi." });
-    }
-  }
 
   const kategoriFilter = ["Semua", ...kategoriOptions];
 
@@ -769,12 +922,6 @@ export default function BahanBakuPage() {
   }, [filtered, currentPage, pageSize]);
 
   const { stokKritis, stokHabis } = hitungStokKritis(data);
-
-  // State khusus untuk modal sukses
-  const [successPopup, setSuccessPopup] = useState({
-    isOpen: false,
-    message: "",
-  });
 
   async function handleAdd(form: BahanForm) {
     try {
@@ -1178,8 +1325,8 @@ export default function BahanBakuPage() {
         open={modalKategoriOpen}
         onClose={() => setModalKategoriOpen(false)}
         kategoriList={kategoriList}
-        onAdd={handleAddKategori}
-        onDelete={handleDeleteKategori}
+        onRefresh={loadData}
+        onSuccess={(msg) => setSuccessPopup({ isOpen: true, message: msg })}
       />
       <ViewBahanModal
         open={!!modalView}

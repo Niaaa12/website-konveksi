@@ -7,6 +7,7 @@ import {
   type TahapSummary,
   URUTAN_TAHAP,
 } from "@/lib/firestore";
+
 import { cn } from "@/lib/utils";
 import {
   Loader2,
@@ -18,6 +19,7 @@ import {
   Wrench,
   Package,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const TAHAP_ICON: Record<string, React.ElementType> = {
   potong: Scissors,
@@ -28,6 +30,15 @@ const TAHAP_ICON: Record<string, React.ElementType> = {
 };
 
 export function DashboardTahapProduksiSummary() {
+  const {
+    user,
+    isAdmin,
+    isManajer,
+    isProduksi,
+    isGudang,
+    isPICProduksi,
+    loading: authLoading,
+  } = useAuth();
   const [data, setData] = useState<TahapSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,12 +70,14 @@ export function DashboardTahapProduksiSummary() {
             </span>
           )}
         </div>
-        <Link
-          href="/produksi/work-order"
-          className="text-xs text-[#003247] hover:underline flex items-center gap-0.5"
-        >
-          Detail <ChevronRight className="h-3 w-3" />
-        </Link>
+        {(isAdmin || isProduksi) && (
+          <Link
+            href="/produksi/work-order"
+            className="text-xs text-[#003247] hover:underline flex items-center gap-0.5"
+          >
+            Detail <ChevronRight className="h-3 w-3" />
+          </Link>
+        )}
       </div>
 
       {/* Alur tahap — horizontal di desktop, vertikal di mobile */}

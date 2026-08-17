@@ -40,8 +40,8 @@ export const HALAMAN_AKSES: Record<string, UserRole[]> = {
 export const HALAMAN_AWAL: Record<UserRole, string> = {
   admin: "/dashboard",
   manajer: "/dashboard",
-  kepalaTimProduksi: "/produksi/work-order",
-  picproduksi: "/progress",     // langsung ke progress, bukan dashboard
+  kepalaTimProduksi: "/dashboard",
+  picproduksi: "/dashboard",
   kepalaGudang: "/dashboard",
 };
 

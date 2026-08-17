@@ -6,6 +6,7 @@ import {
   getProductionUnitsSummary,
   type UnitKategoriSummary,
 } from "@/lib/firestore";
+import { getAuth } from "firebase/auth";
 import { cn } from "@/lib/utils";
 import {
   Loader2,
@@ -16,6 +17,7 @@ import {
   ClipboardCheck,
   Factory,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   jahit: Shirt,
@@ -27,6 +29,15 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 export function DashboardUnitProduksiSummary() {
+  const {
+    user,
+    isAdmin,
+    isManajer,
+    isProduksi,
+    isGudang,
+    isPICProduksi,
+    loading: authLoading,
+  } = useAuth();
   const [summary, setSummary] = useState<UnitKategoriSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,12 +69,14 @@ export function DashboardUnitProduksiSummary() {
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
         <h2 className="text-sm font-semibold">Status Unit Produksi</h2>
-        <Link
-          href="/unitproduksi"
-          className="text-xs text-[#003247] hover:underline"
-        >
-          Lihat semua →
-        </Link>
+        {(isAdmin || isProduksi) && (
+          <Link
+            href="/unitproduksi"
+            className="text-xs text-[#003247] hover:underline"
+          >
+            Lihat semua →
+          </Link>
+        )}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px bg-border">
         {summary.map((s) => {
@@ -72,8 +85,8 @@ export function DashboardUnitProduksiSummary() {
             s.rataEfisiensi >= 85
               ? "text-emerald-600"
               : s.rataEfisiensi >= 60
-              ? "text-amber-600"
-              : "text-red-500";
+                ? "text-amber-600"
+                : "text-red-500";
           return (
             <Link
               key={s.kategori}

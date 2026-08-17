@@ -94,8 +94,16 @@ function getInitial(nama: string) {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
+  const {
+    user,
+    isAdmin,
+    isManajer,
+    isProduksi,
+    isGudang,
+    isPICProduksi,
+    loading: authLoading,
+  } = useAuth();
   const pathname = usePathname();
-  const { user } = useAuth();
 
   const userRole = (user?.role as UserRole) ?? null;
   const userData = user ? { nama: user.nama, email: user.email, role: user.role as UserRole } : null;
@@ -193,7 +201,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         {/* Notifikasi kritis */}
-        <SidebarStokKritisSection />
+        {(isAdmin || isGudang) && (
+          <SidebarStokKritisSection />
+        )}
 
         {/* User */}
         <div className="border-t border-sidebar-border p-2.5">
