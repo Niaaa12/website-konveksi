@@ -275,14 +275,10 @@ export default function LoginPage() {
               className="relative w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
               style={{ background: "#FFFFF0" }}
             >
-              <Image
+              <img
                 src="/logo-sodai.png"
                 alt="Logo Sodai Group"
-                width={48}
-                height={48}
-                className="w-full h-full"
-                style={{ objectFit: "cover" }}
-                priority
+                className="w-full h-full object-cover"
               />
             </div>
             <div>
@@ -346,14 +342,10 @@ export default function LoginPage() {
               className="relative w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
               style={{ background: "#FFFFF0" }}
             >
-              <Image
+              <img
                 src="/logo-sodai.png"
                 alt="Logo Sodai Group"
-                width={48}
-                height={48}
-                className="w-full h-full"
-                style={{ objectFit: "cover" }}
-                priority
+                className="w-full h-full object-cover"
               />
             </div>
             <div>
