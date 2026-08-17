@@ -57,7 +57,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   },
   "/pengaturan": {
     title: "Pengaturan",
-    subtitle: "Konfigurasi sistem",
+    subtitle: "Kelola Profil dan Kata Sandi",
   },
 };
 

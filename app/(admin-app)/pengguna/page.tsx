@@ -327,13 +327,13 @@ function FormModal({
   const [form, setForm] = useState<FormData>(
     initial
       ? {
-          nama: initial.nama,
-          email: initial.email,
-          jabatan: initial.jabatan,
-          role: initial.role,
-          aktif: initial.aktif,
-          password: "",
-        }
+        nama: initial.nama,
+        email: initial.email,
+        jabatan: initial.jabatan,
+        role: initial.role,
+        aktif: initial.aktif,
+        password: "",
+      }
       : { ...EMPTY_FORM }
   );
   const [showPass, setShowPass] = useState(false);
@@ -711,8 +711,8 @@ export default function PenggunaPage() {
         });
       } finally {
         // Bersihkan: sign-out dari secondary app dan hapus instance-nya
-        await signOut(secondaryAuth).catch(() => {});
-        await deleteApp(secondaryApp).catch(() => {});
+        await signOut(secondaryAuth).catch(() => { });
+        await deleteApp(secondaryApp).catch(() => { });
       }
     }
     await loadUsers();

@@ -50,10 +50,11 @@ export interface NotifItem {
 }
 
 const roleBadge: Record<string, string> = {
-  admin: "bg-[#C0E1D2] text-[#124170]",
-  manajer: "bg-[#C0E1D2] text-[#124170]",
-  produksi: "bg-[#C0E1D2] text-[#124170]",
-  gudang: "bg-[#C0E1D2] text-[#124170]",
+  admin: "bg-[#F3E8FF] text-[#6B21A8]",
+  manajer: "bg-[#DBEAFE] text-[#1E40AF]",
+  gudang: "bg-[#FFEDD5] text-[#9A3412]",
+  produksi: "bg-[#DCFCE7] text-[#166534]",
+  picproduksi: "bg-[#CCFBF1] text-[#115E59]",
 };
 
 export function TopBar({ onMenuClick, title, subtitle }: TopbarProps) {
@@ -102,7 +103,7 @@ export function TopBar({ onMenuClick, title, subtitle }: TopbarProps) {
       if (unsubscribe) unsubscribe();
     };
   }, [user]);
-    
+
 
   // Ambil data notifikasi: Difilter berdasarkan Role Pengguna
   useEffect(() => {
@@ -268,16 +269,6 @@ export function TopBar({ onMenuClick, title, subtitle }: TopbarProps) {
             {subtitle}
           </p>
         )}
-      </div>
-
-      {/* Search */}
-      <div className="hidden md:flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 w-56">
-        <Search className="h-3.5 w-3.5 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Cari..."
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
       </div>
 
       {/* Dark mode */}

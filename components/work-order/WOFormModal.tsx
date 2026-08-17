@@ -582,19 +582,40 @@ export function WOFormModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1.5 block text-xs font-medium">
-                  Unit Produksi <span className="text-red-500">*</span>
+                  Unit Jahit <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={form.unitId}
                   onChange={(e) => set("unitId", e.target.value)}
                   className={inputClass}
                 >
-                  <option value="">Pilih unit</option>
-                  {units.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nama}
-                    </option>
-                  ))}
+                  <option value="">Pilih unit jahit</option>
+                  {units
+                    .filter((u) => {
+                      if (u.kategori) return u.kategori === "jahit";
+                      const lowerName = (u.nama || "").toLowerCase();
+                      const lowerJenis = (u.jenis || "").toLowerCase();
+                      return (
+                        lowerName.includes("jahit") || lowerJenis.includes("jahit")
+                      );
+                    })
+                    .concat(
+                      form.unitId &&
+                        !units.some(
+                          (u) =>
+                            u.id === form.unitId &&
+                            (u.kategori === "jahit" ||
+                              (u.nama || "").toLowerCase().includes("jahit") ||
+                              (u.jenis || "").toLowerCase().includes("jahit"))
+                        )
+                        ? units.filter((u) => u.id === form.unitId)
+                        : []
+                    )
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.nama} {u.status !== "aktif" ? `(${u.status})` : ""}
+                      </option>
+                    ))}
                 </select>
               </div>
               <div>
