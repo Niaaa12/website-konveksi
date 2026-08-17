@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { useAuth } from "@/context/AuthContext";
 import {
   kirimResetPassword,
@@ -270,13 +272,16 @@ export default function LoginPage() {
           {/* Brand */}
           <div className="relative z-10 flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0"
+              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0 overflow-hidden"
               style={{ background: "#FFFFF0" }}
             >
-              <img
+              <Image
                 src="/Hijab-Sodai.png"
                 alt="Logo Sodai Group"
+                width={40}
+                height={40}
                 className="w-full h-full object-cover"
+                priority
               />
             </div>
             <div>
@@ -337,13 +342,16 @@ export default function LoginPage() {
           {/* Mobile brand */}
           <div className="lg:hidden flex items-center gap-3 mb-6">
             <div
-              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0"
+              className="w-10 h-10 rounded-3xl flex items-center justify-center text-white text-xl flex-shrink-0 overflow-hidden"
               style={{ background: "#FFFFF0" }}
             >
-              <img
+              <Image
                 src="/Hijab-Sodai.png"
                 alt="Logo Sodai Group"
+                width={40}
+                height={40}
                 className="w-full h-full object-cover"
+                priority
               />
             </div>
             <div>
