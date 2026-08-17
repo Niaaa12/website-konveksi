@@ -26,6 +26,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Terapkan middleware ke semua halaman kecuali aset statis
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
+  // Terapkan middleware ke semua halaman KECUALI aset statis, folder Next.js, dan file gambar/ekstensi (.png, .jpg, dll)
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:png|jpg|jpeg|svg|ico|webp)).*)",
+  ],
 };
