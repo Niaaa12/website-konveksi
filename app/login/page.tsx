@@ -276,7 +276,7 @@ export default function LoginPage() {
               style={{ background: "#FFFFF0" }}
             >
               <Image
-                src="/logo-sodai.png"
+                src="/hijab-sodai.png"
                 alt="Logo Sodai Group"
                 width={48}
                 height={48}
@@ -347,7 +347,7 @@ export default function LoginPage() {
               style={{ background: "#FFFFF0" }}
             >
               <Image
-                src="/logo-sodai.png"
+                src="/hijab-sodai.png"
                 alt="Logo Sodai Group"
                 width={48}
                 height={48}
