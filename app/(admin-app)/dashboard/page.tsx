@@ -754,53 +754,90 @@ export default function DashboardPage() {
             </div>
 
             {/* Tabel Produk Kritis Gudang Packing & Transfer Cepat */}
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                <h2 className="text-sm font-semibold flex items-center gap-2 text-amber-700">
-                  <AlertTriangle className="h-4 w-4" /> Varian Kritis Gudang Packing ({kritisPacking.length})
+            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              {/* Header Panel */}
+              <div className="flex items-center justify-between border-b border-border bg-muted/10 px-5 py-4">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-red-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  Varian Kritis Gudang Packing ({kritisPacking.length})
                 </h2>
                 <Link
                   href="/persediaan/transfer"
-                  className="text-xs text-[#003247] hover:underline flex items-center gap-1"
+                  className="flex items-center gap-1 text-xs font-medium text-[#003247] transition-colors hover:text-[#004a6e] hover:underline"
                 >
                   Log Transfer <ArrowRight className="h-3 w-3" />
                 </Link>
               </div>
-              <div className="p-5 overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-left font-semibold text-muted-foreground border-b border-border pb-2">
-                      <th className="pb-2">Produk</th>
-                      <th className="pb-2">Varian</th>
-                      <th className="pb-2 text-right">Gudang Besar</th>
-                      <th className="pb-2 text-right">Packing</th>
-                      <th className="pb-2 text-center">Aksi</th>
+
+              {/* Table Container */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/20 text-muted-foreground">
+                    <tr>
+                      <th className="whitespace-nowrap px-5 py-3.5 font-semibold">Produk</th>
+                      <th className="whitespace-nowrap px-5 py-3.5 font-semibold">Varian</th>
+                      <th className="whitespace-nowrap px-5 py-3.5 text-right font-semibold">Stok Gudang Besar</th>
+                      <th className="whitespace-nowrap px-5 py-3.5 text-right font-semibold">Stok Packing</th>
+                      <th className="whitespace-nowrap px-5 py-3.5 text-center font-semibold">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {kritisPacking.slice(0, 5).map((kp, i) => (
-                      <tr key={i} className="hover:bg-muted/10">
-                        <td className="py-2.5 font-medium text-foreground">{kp.productName}</td>
-                        <td className="py-2.5 text-muted-foreground">{kp.warna} ({kp.ukuran})</td>
-                        <td className="py-2.5 text-right font-mono font-semibold text-blue-600">{kp.stokGudangBesar} pcs</td>
-                        <td className="py-2.5 text-right font-mono text-red-500 font-bold">{kp.stokGudangPacking} pcs</td>
-                        <td className="py-2.5 text-center">
+                      <tr key={i} className="group transition-colors hover:bg-muted/10">
+                        {/* Kolom Produk */}
+                        <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
+                          {kp.productName}
+                        </td>
+
+                        {/* Kolom Varian (Diubah menjadi style badge) */}
+                        <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
+                          <span className="inline-flex items-center rounded-md bg-secondary/50 px-2 py-1 text-[11px] font-medium text-secondary-foreground ring-1 ring-inset ring-secondary/20">
+                            {kp.warna} - {kp.ukuran}
+                          </span>
+                        </td>
+
+                        {/* Kolom Stok Gudang Besar */}
+                        <td className="whitespace-nowrap px-5 py-3 text-right font-mono text-muted-foreground">
+                          {kp.stokGudangBesar} <span className="text-[10px]">pcs</span>
+                        </td>
+
+                        {/* Kolom Stok Packing (Diubah menjadi red badge agar lebih "Alert") */}
+                        <td className="whitespace-nowrap px-5 py-3 text-right font-mono">
+                          <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-bold text-red-700 ring-1 ring-inset ring-red-600/20 dark:bg-red-950/30 dark:text-red-400 dark:ring-red-900/50">
+                            {kp.stokGudangPacking} pcs
+                          </span>
+                        </td>
+
+                        {/* Kolom Aksi */}
+                        <td className="whitespace-nowrap px-5 py-3 text-center">
                           <button
                             onClick={() => {
                               setTransferTarget(kp);
                               setTransferJumlah(Math.min(20, kp.stokGudangBesar));
                             }}
-                            className="rounded-lg bg-[#003247] px-2 py-1 text-[10px] font-semibold text-white hover:bg-[#004a6e]"
+                            className="inline-flex items-center justify-center rounded-md bg-[#003247] px-3 py-1.5 text-[11px] font-medium text-white transition-all hover:bg-[#004a6e] hover:shadow-sm active:scale-95"
                           >
                             Transfer Cepat
                           </button>
                         </td>
                       </tr>
                     ))}
+
+                    {/* Empty State yang lebih rapi */}
                     {kritisPacking.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="text-center py-6 text-xs text-muted-foreground">
-                          Stok Gudang Packing aman.
+                        <td colSpan={5} className="bg-muted/5 py-10 text-center text-muted-foreground">
+                          <div className="flex flex-col items-center justify-center gap-1">
+                            {/* Pastikan Anda sudah import ikon ini dari lucide-react jika ingin dipakai, 
+                    atau hapus ikonnya jika tidak diperlukan */}
+                            <div className="mb-1 rounded-full bg-emerald-100 p-2 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                            <span className="font-medium text-foreground">Stok Gudang Packing Aman</span>
+                            <span className="text-xs">Tidak ada varian yang mencapai batas kritis.</span>
+                          </div>
                         </td>
                       </tr>
                     )}
